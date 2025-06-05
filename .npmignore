@@ -3,8 +3,7 @@ src/
 __tests__/
 __mocks__/
 
-# Build and test files
-dist/__tests__
+# Test files
 coverage/
 *.test.*
 *.spec.*
@@ -19,6 +18,27 @@ examples/
 
 # Config files
 .editorconfig
+
+# Development files
+.eslintrc*
+.prettierrc*
+*.log
+.npmrc
+.gitignore
+.travis.yml
+.github/
+.vscode/
+.idea/
+*.sublime-*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 .eslintrc.js
 .prettierrc
 .prettierignore

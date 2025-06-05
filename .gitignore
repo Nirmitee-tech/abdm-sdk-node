@@ -4,7 +4,7 @@ package-lock.json
 yarn.lock
 
 # Build output
-dist/
+# dist/  # Commented out to track dist/ for git installations
 coverage/
 
 # Environment variables
