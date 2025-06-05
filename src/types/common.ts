@@ -31,6 +31,7 @@ export interface RequestOptions {
   params?: Record<string, unknown>;
   timeout?: number;
   authToken?: string;
+  skipAuth?: boolean; // If true, skips adding Authorization header
 }
 
 export interface ABDMError {

@@ -87,11 +87,11 @@ export class HttpClient {
         // For Axios interceptors, the config param is InternalAxiosRequestConfig.
         const internalConfig = axiosConfig as import('axios').InternalAxiosRequestConfig;
 
-        // Skip auth for auth requests to avoid infinite loops
-        // Skip auth for auth requests to avoid infinite loops
-        // The auth URL is typically <basePath>/v0.5/sessions
+        // Skip auth for auth requests to avoid infinite loops or when skipAuth is true
         const authPathSegment = '/v0.5/sessions';
-        if (internalConfig.url?.endsWith(authPathSegment)) {
+        const skipAuth = (internalConfig as any).skipAuth === true;
+        
+        if (internalConfig.url?.endsWith(authPathSegment) || skipAuth) {
           return internalConfig;
         }
 
@@ -246,24 +246,24 @@ export class HttpClient {
       return this._publicKey;
     }
 
-    // IMPORTANT: The Postman collection shows this endpoint under abhasbx.abdm.gov.in
-    // This implies it might need a different base URL or a full URL request.
-    // For now, assuming it can be reached via the standard configured baseUrl + path.
-    // This needs verification. Let's use a placeholder path for now and assume it returns the key directly.
-    // The actual Cert API from Postman M1 is: https://abhasbx.abdm.gov.in/abha/api/v3/profile/public/certificate
-    // This might require a specific client instance or a way to make requests to different base URLs.
-    // For simplicity in this step, we'll use a relative path and assume it's on the same `baseUrl`.
-    // This will likely need refinement.
-
-    // The actual Cert API from Postman M1 is: https://abhasbx.abdm.gov.in/abha/api/v3/profile/public/certificate
-    // This request requires an Authorization token.
     const absolutePublicKeyUrl =
       'https://abhasbx.abdm.gov.in/abha/api/v3/profile/public/certificate';
 
     try {
-      // Axios will use the absolute URL if provided, ignoring the instance's baseURL.
-      // The interceptor should still add the Authorization header.
-      const response = await this.get<{ publicKey: string }>(absolutePublicKeyUrl);
+      // Generate timestamp in the required format: YYYY-MM-DDTHH:mm:ss.SSS[Z]
+      const timestamp = new Date().toISOString();
+      
+      // Add required headers for ABDM API
+      const headers = {
+        'X-Timestamp': timestamp,
+        'X-CM-ID': 'sbx_mstr' // Default sandbox CM ID, can be configured
+      };
+      
+      // Make the request with the required headers
+      const response = await this.get<{ publicKey: string }>(absolutePublicKeyUrl, {
+        headers,
+        skipAuth: true // Skip auth for public key fetch
+      });
       if (response.success && response.data?.publicKey) {
         this._publicKey = response.data.publicKey; // Assuming the response structure is { publicKey: "..." }
         return this._publicKey!;
@@ -315,7 +315,7 @@ export class HttpClient {
   ): Promise<APIResponse<T>> {
     try {
       // Create the request config with our custom type
-      const config: CustomAxiosRequestConfig = {
+      const config: CustomAxiosRequestConfig & { skipAuth?: boolean } = {
         method,
         url,
         data,
@@ -326,6 +326,8 @@ export class HttpClient {
           Accept: 'application/json',
           ...(options.headers || {}),
         },
+        // Pass through skipAuth option to the interceptor
+        skipAuth: options.skipAuth,
       };
 
       // If authToken is provided, add it to the config for the interceptor to handle
