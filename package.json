@@ -1,0 +1,90 @@
+{
+  "name": "@nirmitee/abdm-sdk-node",
+  "version": "1.0.0",
+  "description": "Node.js SDK for Ayushman Bharat Digital Mission (ABDM)",
+  "main": "dist/index.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsc",
+    "prepare": "echo 'Skipping build during installation' || true",
+    "prepublishOnly": "npm run lint && npm test",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "test": "jest",
+    "test:unit": "jest test/unit",
+    "test:integration": "jest test/integration",
+    "test:m1": "jest test/m1.service.test.ts",
+    "test:m2": "jest test/m2.service.test.ts",
+    "test:m3": "jest test/m3.service.test.ts",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage --collectCoverageFrom='src/**/*.ts' --collectCoverageFrom='!src/**/*.d.ts' --collectCoverageFrom='!src/index.ts'",
+    "test:ci": "npm run lint && npm run test:coverage",
+    "docs": "typedoc --out docs src",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "check-types": "tsc --noEmit",
+    "preinstall": "npx only-allow npm || npx only-allow pnpm || npx only-allow yarn"
+  },
+  "keywords": [
+    "abdm",
+    "ayushman-bharat",
+    "sdk",
+    "node",
+    "healthcare",
+    "india",
+    "api"
+  ],
+  "author": "Pradhyuman Singh Rao (https://github.com/pradhyuman-nirmitee)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nirmitee-tech/abdm-sdk-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Nirmitee-tech/abdm-sdk-node/issues"
+  },
+  "homepage": "https://github.com/Nirmitee-tech/abdm-sdk-node#readme",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0",
+    "pnpm": ">=6.0.0",
+    "yarn": ">=1.22.0"
+  },
+  "packageManager": "pnpm@8.6.0",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.10",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.10.0",
+    "@types/uuid": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "dotenv": "^16.3.1",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "jest": "^29.7.0",
+    "prettier": "^3.1.0",
+    "rimraf": "^5.0.5",
+    "ts-jest": "^29.1.1",
+    "ts-node": "^10.9.1",
+    "typedoc": "^0.25.3",
+    "typescript": "^5.3.0"
+  }
+}
