@@ -1,5 +1,5 @@
 import { HttpClient } from '../utils/http-client';
-import {
+import type {
   HealthFacilityRequest,
   HealthFacilityResponse,
   GenerateTokenRequest,
@@ -10,7 +10,6 @@ import {
   FetchRecordsOptions,
   HealthRecord,
   HealthRecordsResponse,
-  APIResponse,
 } from '../types';
 
 /**

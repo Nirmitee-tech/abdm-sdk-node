@@ -1,5 +1,5 @@
 import { HttpClient } from '../utils/http-client';
-import { APIResponse, ABDMErrorResponse } from '../types';
+import type { APIResponse } from '../types';
 import {
   SessionRequest,
   SessionResponse,
@@ -97,7 +97,7 @@ export class M1Service {
    * @param data ABHA creation data using LegacyABHACreationRequest
    */
   async createABHAWithAadhaar(
-    data: LegacyABHACreationRequest
+    _data: LegacyABHACreationRequest
   ): Promise<APIResponse<ABHACreationResponse>> {
     console.warn(
       'createABHAWithAadhaar needs review against Postman M1 collection. Endpoint and payload may differ.'

@@ -1,0 +1,138 @@
+# Source files (already compiled to dist/)
+src/
+__tests__/
+__mocks__/
+
+# Build and test files
+dist/__tests__
+coverage/
+*.test.*
+*.spec.*
+
+# Documentation and examples
+docs/
+examples/
+*.md
+!README.md
+!LICENSE
+!CHANGELOG.md
+
+# Config files
+.editorconfig
+.eslintrc.js
+.prettierrc
+.prettierignore
+.eslintignore
+jest.config.js
+jest.setup.js
+
+# Environment files
+.env*
+!.env.example
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Local development
+.local/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Cache and temp files
+.npm
+.eslintcache
+.node_repl_history
+.cache/
+.parcel-cache/
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.nx/cache/
+.nyc_output/
+.nyc_output/
+.nyc_output/*
+coverage/
+.coveralls.yml
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Yarn v2
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# IDE specific files
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Test artifacts
+/test-results/
+/coverage/
+
+# Local development
+*.local
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+
+# Gatsby files
+.cache/
+public
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# VSCode test storage
+.vscode-test/
+
+# Local development files
+*.local

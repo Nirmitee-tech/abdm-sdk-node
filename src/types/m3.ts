@@ -1,5 +1,3 @@
-import { APIResponse } from './common';
-
 export interface M3SessionRequest {
   clientId: string;
   clientSecret: string;

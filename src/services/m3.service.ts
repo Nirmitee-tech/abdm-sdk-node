@@ -1,5 +1,5 @@
 import { HttpClient } from '../utils/http-client';
-import {
+import type {
   M3SessionRequest,
   M3SessionResponse,
   BridgeServiceRegistrationRequest,
@@ -8,7 +8,6 @@ import {
   M3ConsentRequest,
   ConsentStatusResponse,
   HealthInformationRequest,
-  HealthInformationResponse,
   HealthInformationNotification,
 } from '../types/m3';
 
@@ -208,7 +207,20 @@ export class M3Service {
    * @returns Promise with success status
    */
   async handleConsentNotification(
-    notification: any, // Define proper type based on actual notification structure
+    notification: {
+      requestId: string;
+      timestamp: string;
+      notification: {
+        consentRequestId: string;
+        status: 'GRANTED' | 'DENIED' | 'EXPIRED' | 'FAILED';
+        signature: string;
+        consentArtefacts?: Array<{
+          id: string;
+          status: 'GRANTED' | 'REVOKED' | 'EXPIRED';
+          signature: string;
+        }>;
+      };
+    },
     authToken: string
   ): Promise<{ success: boolean }> {
     const response = await this.http.post<{ success: boolean }>(
@@ -280,7 +292,17 @@ export class M3Service {
    * @param token - Authentication token
    * @returns Promise with health information
    */
-  async fetchHealthInformation(consentId: string, token: string): Promise<any> {
+  async fetchHealthInformation(
+    consentId: string,
+    token: string
+  ): Promise<{
+    requestId: string;
+    timestamp: string;
+    hiRequest: {
+      transactionId: string;
+      sessionStatus: 'REQUESTED' | 'ACKNOWLEDGED' | 'ERROR';
+    };
+  }> {
     const response = await this.http.get<any>(`${this.healthInfoBasePath}/fetch/${consentId}`, {
       headers: {
         Authorization: `Bearer ${token}`,

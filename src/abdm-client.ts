@@ -8,7 +8,7 @@ import { M3Service } from './services/m3.service';
  * Main client for interacting with the Ayushman Bharat Digital Mission (ABDM) APIs
  */
 export class ABDMClient {
-  private http: any; // Using any to avoid TypeScript errors with private properties
+  private http: HttpClient;
   public m1: M1Service;
   public m2: M2Service;
   public m3: M3Service;

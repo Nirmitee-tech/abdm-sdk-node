@@ -1,10 +1,4 @@
-import axios, {
-  AxiosError,
-  AxiosHeaders,
-  AxiosInstance,
-  AxiosRequestConfig,
-  AxiosResponse,
-} from 'axios';
+import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import * as crypto from 'crypto';
 
 // Extend AxiosRequestConfig to include our custom properties
@@ -23,6 +17,20 @@ export class HttpClient {
   private _authToken: string | null = null;
   private _tokenExpiry: Date | null = null;
   private _publicKey: string | null = null;
+
+  /**
+   * Get the public key
+   */
+  public get publicKey(): string | null {
+    return this._publicKey;
+  }
+
+  /**
+   * Set the public key
+   */
+  public set publicKey(key: string | null) {
+    this._publicKey = key;
+  }
 
   /**
    * Get the current authentication token
@@ -88,9 +96,9 @@ export class HttpClient {
         }
 
         // Use 'as any' or type assertion for custom properties if not extending AxiosRequestConfig globally
-        let customAuthToken = (internalConfig as CustomAxiosRequestConfig).authToken;
+        const customAuthToken = (internalConfig as CustomAxiosRequestConfig).authToken;
         let currentToken = customAuthToken || this._authToken;
-        let currentTokenExpiry = this._tokenExpiry;
+        const currentTokenExpiry = this._tokenExpiry;
 
         if (currentToken && !customAuthToken) {
           // Only check expiry for internally managed token
@@ -112,23 +120,33 @@ export class HttpClient {
           }
         }
 
-        // Ensure headers object exists
-        if (!internalConfig.headers) {
-          internalConfig.headers = new AxiosHeaders();
+        // Create a new headers object
+        const headers: Record<string, string | number | boolean> = {};
+        
+        // Copy existing headers if they exist
+        if (internalConfig.headers) {
+          Object.entries(internalConfig.headers).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+              headers[key.toLowerCase()] = String(value);
+            }
+          });
         }
 
         // Add the token to headers if available
         if (currentToken) {
-          (internalConfig.headers as AxiosHeaders).set('Authorization', `Bearer ${currentToken}`);
+          headers['authorization'] = `Bearer ${currentToken}`;
         }
 
-        // Ensure standard headers are present if not already set by specific request
-        if (!(internalConfig.headers as AxiosHeaders).has('Content-Type')) {
-          (internalConfig.headers as AxiosHeaders).set('Content-Type', 'application/json');
+        // Ensure standard headers are present
+        if (!headers['content-type']) {
+          headers['content-type'] = 'application/json';
         }
-        if (!(internalConfig.headers as AxiosHeaders).has('Accept')) {
-          (internalConfig.headers as AxiosHeaders).set('Accept', 'application/json');
+        if (!headers['accept']) {
+          headers['accept'] = 'application/json';
         }
+
+        // Assign headers back to config with type assertion
+        internalConfig.headers = headers as any;
 
         // Remove custom authToken from config to prevent it from being sent by axios
         // Need to be careful if other parts of axios might try to access it.

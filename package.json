@@ -48,10 +48,10 @@
   },
   "homepage": "https://github.com/Nirmitee-tech/abdm-sdk-node#readme",
   "engines": {
-    "node": ">=14.0.0",
-    "npm": ">=6.0.0",
-    "pnpm": ">=6.0.0",
-    "yarn": ">=1.22.0"
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0",
+    "yarn": ">=1.22.0",
+    "pnpm": ">=6.0.0"
   },
   "packageManager": "pnpm@8.6.0",
   "publishConfig": {
