@@ -1,5 +1,5 @@
 import { HttpClient } from '../utils/http-client';
-import { APIResponse, ABDMErrorResponse } from '../types'; 
+import { APIResponse, ABDMErrorResponse } from '../types';
 import {
   SessionRequest,
   SessionResponse,
@@ -33,14 +33,17 @@ export class M1Service {
    * Corresponds to Postman M1: "Session API"
    * Endpoint: https://dev.abdm.gov.in/api/hiecm/gateway/v3/sessions
    */
-  async createGatewaySession(clientId: string, clientSecret: string): Promise<APIResponse<SessionResponse>> {
+  async createGatewaySession(
+    clientId: string,
+    clientSecret: string
+  ): Promise<APIResponse<SessionResponse>> {
     const requestBody: SessionRequest = {
       clientId,
       clientSecret,
       grantType: 'client_credentials',
     };
     return this.http.post<SessionResponse>('/api/hiecm/gateway/v3/sessions', requestBody, {
-      headers: { 'X-CM-ID': 'sbx' }
+      headers: { 'X-CM-ID': 'sbx' },
     });
   }
 
@@ -48,9 +51,7 @@ export class M1Service {
    * ABHA Enrolment: Send OTP for Aadhaar verification
    * Endpoint: https://abhasbx.abdm.gov.in/abha/api/v3/enrollment/request/otp
    */
-  async sendAadhaarOTP(
-    unencryptedAadhaar: string
-  ): Promise<APIResponse<AadhaarSendOTPResponse>> {
+  async sendAadhaarOTP(unencryptedAadhaar: string): Promise<APIResponse<AadhaarSendOTPResponse>> {
     const encryptedAadhaar = await this.http.encryptWithPublicKey(unencryptedAadhaar);
     const requestBody: AadhaarSendOTPRequest = {
       scope: ['abha-enrol'],
@@ -72,7 +73,7 @@ export class M1Service {
   async verifyAadhaarOTPAndCreateABHA(
     otp: string,
     txnId: string,
-    preferredAbhaAddress?: string 
+    preferredAbhaAddress?: string
   ): Promise<APIResponse<ABHACreationResponse>> {
     const apiEndpoint = 'https://abhasbx.abdm.gov.in/abha/api/v3/enrollment/account';
     const requestBody: AadhaarVerifyAndCreateABHARequest = {
@@ -80,10 +81,10 @@ export class M1Service {
         authMethods: ['otp'],
         otp: {
           txnId: txnId,
-          otpValue: otp, 
+          otpValue: otp,
         },
       },
-      creationType: 'abha-id', 
+      creationType: 'abha-id',
     };
     if (preferredAbhaAddress) {
       requestBody.preferredAbhaAddress = preferredAbhaAddress;
@@ -96,9 +97,11 @@ export class M1Service {
    * @param data ABHA creation data using LegacyABHACreationRequest
    */
   async createABHAWithAadhaar(
-    data: LegacyABHACreationRequest 
+    data: LegacyABHACreationRequest
   ): Promise<APIResponse<ABHACreationResponse>> {
-    console.warn('createABHAWithAadhaar needs review against Postman M1 collection. Endpoint and payload may differ.');
+    console.warn(
+      'createABHAWithAadhaar needs review against Postman M1 collection. Endpoint and payload may differ.'
+    );
     throw new Error('createABHAWithAadhaar is not implemented or uses an unverified endpoint.');
   }
 
@@ -109,15 +112,13 @@ export class M1Service {
    */
   async sendMobileUpdateOTP(
     mobile: string,
-    authToken: string 
-  ): Promise<APIResponse<MobileSendOTPResponse>> { 
-    const apiEndpoint = '/v1/account/mobile/otp'; 
+    authToken: string
+  ): Promise<APIResponse<MobileSendOTPResponse>> {
+    const apiEndpoint = '/v1/account/mobile/otp';
     const requestBody: MobileUpdateRequest = { mobile };
-    return this.http.post<MobileSendOTPResponse>(
-      apiEndpoint, 
-      requestBody,
-      { headers: { 'X-Token': authToken } } 
-    );
+    return this.http.post<MobileSendOTPResponse>(apiEndpoint, requestBody, {
+      headers: { 'X-Token': authToken },
+    });
   }
 
   /**
@@ -131,11 +132,11 @@ export class M1Service {
     txnId: string,
     authToken: string
   ): Promise<APIResponse<MessageResponse>> {
-    const apiEndpoint = '/v1/account/mobile/verify'; 
+    const apiEndpoint = '/v1/account/mobile/verify';
     return this.http.post<MessageResponse>(
       apiEndpoint,
-      { otp, txnId }, 
-      { headers: { 'X-Token': authToken } } 
+      { otp, txnId },
+      { headers: { 'X-Token': authToken } }
     );
   }
 
@@ -148,13 +149,11 @@ export class M1Service {
     email: string,
     authToken: string
   ): Promise<APIResponse<MessageResponse>> {
-    const apiEndpoint = '/v1/account/email/send-verification'; 
+    const apiEndpoint = '/v1/account/email/send-verification';
     const requestBody: EmailVerificationRequest = { email };
-    return this.http.post<MessageResponse>(
-      apiEndpoint,
-      requestBody,
-      { headers: { 'X-Token': authToken } }
-    );
+    return this.http.post<MessageResponse>(apiEndpoint, requestBody, {
+      headers: { 'X-Token': authToken },
+    });
   }
 
   /**
@@ -163,17 +162,14 @@ export class M1Service {
    * @param authToken User's session token (X-Token)
    */
   async getABHAAddressSuggestions(
-    txnId: string, 
+    txnId: string,
     authToken: string
   ): Promise<APIResponse<ABHAAddressResponse>> {
-    const apiEndpoint = '/v1/account/phr/suggestion'; 
-    return this.http.get<ABHAAddressResponse>(
-      apiEndpoint,
-      {
-        params: { txnId }, 
-        headers: { 'X-Token': authToken }
-      }
-    );
+    const apiEndpoint = '/v1/account/phr/suggestion';
+    return this.http.get<ABHAAddressResponse>(apiEndpoint, {
+      params: { txnId },
+      headers: { 'X-Token': authToken },
+    });
   }
 
   /**
@@ -185,17 +181,15 @@ export class M1Service {
    */
   async createABHAAddress(
     abhaAddress: string,
-    txnId: string, 
+    txnId: string,
     authToken: string,
-    preferred: boolean = true 
-  ): Promise<APIResponse<MessageResponse>> { 
-    const apiEndpoint = '/v1/account/phr-address'; 
+    preferred: boolean = true
+  ): Promise<APIResponse<MessageResponse>> {
+    const apiEndpoint = '/v1/account/phr-address';
     const requestBody: ABHAAddressRequest = { abhaAddress, preferred, txnId };
-    return this.http.post<MessageResponse>(
-      apiEndpoint,
-      requestBody,
-      { headers: { 'X-Token': authToken } }
-    );
+    return this.http.post<MessageResponse>(apiEndpoint, requestBody, {
+      headers: { 'X-Token': authToken },
+    });
   }
 
   /**
@@ -221,7 +215,8 @@ export class M1Service {
   async updateABHAProfile(
     profileData: UpdateABHAProfileRequest,
     authToken: string
-  ): Promise<APIResponse<MessageResponse>> { // Or ABHAProfileData if API returns updated profile
+  ): Promise<APIResponse<MessageResponse>> {
+    // Or ABHAProfileData if API returns updated profile
     const apiEndpoint = 'https://abhasbx.abdm.gov.in/abha/api/v1/account/profile'; // Verify this endpoint
     return this.http.put<MessageResponse>(apiEndpoint, profileData, {
       headers: { 'X-Token': authToken },
@@ -252,7 +247,8 @@ export class M1Service {
     authToken: string // Optional: Verify if auth is needed for this check
   ): Promise<APIResponse<CheckABHAAddressExistsResponse>> {
     // Verify this endpoint and if it's a GET or POST. Assuming POST based on request body type.
-    const apiEndpoint = 'https://abhasbx.abdm.gov.in/abha/api/v1/account/phr-address/exists-by-phr-address';
+    const apiEndpoint =
+      'https://abhasbx.abdm.gov.in/abha/api/v1/account/phr-address/exists-by-phr-address';
     const requestBody: CheckABHAAddressExistsRequest = { phrAddress };
     return this.http.post<CheckABHAAddressExistsResponse>(apiEndpoint, requestBody, {
       headers: { 'X-Token': authToken }, // Verify if X-Token is needed

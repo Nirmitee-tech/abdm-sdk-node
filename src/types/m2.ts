@@ -7,7 +7,23 @@ export interface HealthFacilityRequest {
   HRP: Array<{
     bridgeId: string;
     hipName: string;
-    type: 'HIP' | 'HIU' | 'HRP' | 'HFR' | 'HFRM' | 'HIE-CM' | 'HIE-EMR' | 'HIE-HRP' | 'HIE-IPD' | 'HIE-LAB' | 'HIE-PHR' | 'HIE-PHRM' | 'HIE-PMS' | 'HIE-SU' | 'HIE-TM' | 'HIE-TP';
+    type:
+      | 'HIP'
+      | 'HIU'
+      | 'HRP'
+      | 'HFR'
+      | 'HFRM'
+      | 'HIE-CM'
+      | 'HIE-EMR'
+      | 'HIE-HRP'
+      | 'HIE-IPD'
+      | 'HIE-LAB'
+      | 'HIE-PHR'
+      | 'HIE-PHRM'
+      | 'HIE-PMS'
+      | 'HIE-SU'
+      | 'HIE-TM'
+      | 'HIE-TP';
     active: boolean;
   }>;
 }

@@ -34,27 +34,20 @@ export class M3Service {
   // Session Management
   // ======================
 
-
   /**
    * Create a new session
    * @param clientId - Client ID
    * @param clientSecret - Client secret
    * @returns Promise with session details
    */
-  async createSession(
-    clientId: string,
-    clientSecret: string
-  ): Promise<M3SessionResponse> {
+  async createSession(clientId: string, clientSecret: string): Promise<M3SessionResponse> {
     const data: M3SessionRequest = {
       clientId,
       clientSecret,
       grantType: 'client_credentials',
     };
 
-    const response = await this.http.post<M3SessionResponse>(
-      `${this.basePath}/sessions`,
-      data
-    );
+    const response = await this.http.post<M3SessionResponse>(`${this.basePath}/sessions`, data);
 
     if (!response.success || !response.data) {
       throw new Error('Failed to create session');
@@ -66,7 +59,6 @@ export class M3Service {
   // ======================
   // Bridge Service Management
   // ======================
-
 
   /**
    * Update bridge URL
@@ -164,7 +156,6 @@ export class M3Service {
   // HIU Consent APIs
   // ======================
 
-
   /**
    * Initialize a consent request
    * @param consentRequest - Consent request details
@@ -237,7 +228,6 @@ export class M3Service {
   // Health Information APIs
   // ======================
 
-
   /**
    * Request health information
    * @param request - Health information request details
@@ -290,18 +280,12 @@ export class M3Service {
    * @param token - Authentication token
    * @returns Promise with health information
    */
-  async fetchHealthInformation(
-    consentId: string,
-    token: string
-  ): Promise<any> {
-    const response = await this.http.get<any>(
-      `${this.healthInfoBasePath}/fetch/${consentId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+  async fetchHealthInformation(consentId: string, token: string): Promise<any> {
+    const response = await this.http.get<any>(`${this.healthInfoBasePath}/fetch/${consentId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     if (!response.success || !response.data) {
       throw new Error('Failed to fetch health information');

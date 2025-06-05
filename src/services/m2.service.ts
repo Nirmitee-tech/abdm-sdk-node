@@ -1,6 +1,6 @@
 import { HttpClient } from '../utils/http-client';
-import { 
-  HealthFacilityRequest, 
+import {
+  HealthFacilityRequest,
   HealthFacilityResponse,
   GenerateTokenRequest,
   GenerateTokenResponse,
@@ -10,7 +10,7 @@ import {
   FetchRecordsOptions,
   HealthRecord,
   HealthRecordsResponse,
-  APIResponse
+  APIResponse,
 } from '../types';
 
 /**
@@ -53,9 +53,7 @@ export class M2Service {
    * @param data - Token generation request data
    * @returns Promise with token response
    */
-  async generateToken(
-    data: GenerateTokenRequest
-  ): Promise<GenerateTokenResponse['data']> {
+  async generateToken(data: GenerateTokenRequest): Promise<GenerateTokenResponse['data']> {
     const response = await this.http.post<GenerateTokenResponse['data']>(
       `${this.basePath}/hip/token/generate-token`,
       data
@@ -76,8 +74,8 @@ export class M2Service {
       `${this.basePath}/profile/me`,
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -118,8 +116,8 @@ export class M2Service {
       { abhaNumber, abhaAddress },
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -131,7 +129,6 @@ export class M2Service {
   // ======================
   // Health Facility Management
   // ======================
-
 
   /**
    * Get health facility details
@@ -168,7 +165,10 @@ export class M2Service {
    * @param active - New status (active/inactive)
    * @returns Promise with success status
    */
-  async updateHealthFacilityStatus(facilityId: string, active: boolean): Promise<{ success: boolean }> {
+  async updateHealthFacilityStatus(
+    facilityId: string,
+    active: boolean
+  ): Promise<{ success: boolean }> {
     const response = await this.http.put<{ success: boolean }>(
       `${this.basePath}/facilities/${facilityId}/status`,
       { active }
@@ -182,7 +182,6 @@ export class M2Service {
   // ======================
   // ABHA Profile Management
   // ======================
-
 
   /**
    * Update ABHA profile
@@ -199,8 +198,8 @@ export class M2Service {
       profileData,
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -215,16 +214,13 @@ export class M2Service {
    * @param token - Authentication token
    * @returns Promise with list of matching profiles
    */
-  async searchABHAProfiles(
-    query: string,
-    token: string
-  ): Promise<ABHAProfileResponse['data'][]> {
+  async searchABHAProfiles(query: string, token: string): Promise<ABHAProfileResponse['data'][]> {
     const response = await this.http.get<ABHAProfileResponse['data'][]>(
       `${this.basePath}/profiles/search?q=${encodeURIComponent(query)}`,
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -247,8 +243,8 @@ export class M2Service {
       `${this.basePath}/abha/${abhaNumber}/addresses`,
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -261,23 +257,19 @@ export class M2Service {
   // ABHA Address Management
   // ======================
 
-
   /**
    * Unlink ABHA address
    * @param abhaAddress - ABHA address to unlink
    * @param token - Authentication token
    * @returns Promise with success status
    */
-  async unlinkABHAAddress(
-    abhaAddress: string,
-    token: string
-  ): Promise<{ success: boolean }> {
+  async unlinkABHAAddress(abhaAddress: string, token: string): Promise<{ success: boolean }> {
     const response = await this.http.delete<{ success: boolean }>(
       `${this.basePath}/abha/address/${encodeURIComponent(abhaAddress)}`,
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -292,17 +284,14 @@ export class M2Service {
    * @param token - Authentication token
    * @returns Promise with success status
    */
-  async setPreferredABHAAddress(
-    abhaAddress: string,
-    token: string
-  ): Promise<{ success: boolean }> {
+  async setPreferredABHAAddress(abhaAddress: string, token: string): Promise<{ success: boolean }> {
     const response = await this.http.put<{ success: boolean }>(
       `${this.basePath}/abha/address/preferred`,
       { abhaAddress },
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -314,7 +303,6 @@ export class M2Service {
   // ======================
   // Token Management
   // ======================
-
 
   /**
    * Refresh access token
@@ -343,8 +331,8 @@ export class M2Service {
       {},
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -356,7 +344,6 @@ export class M2Service {
   // ======================
   // Consent Management
   // ======================
-
 
   /**
    * Create a new consent
@@ -374,8 +361,8 @@ export class M2Service {
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -390,16 +377,13 @@ export class M2Service {
    * @param token - Authentication token
    * @returns Promise with consent details
    */
-  async getConsent(
-    consentId: string,
-    token: string
-  ): Promise<ConsentResponse['data']> {
+  async getConsent(consentId: string, token: string): Promise<ConsentResponse['data']> {
     const response = await this.http.get<ConsentResponse['data']>(
       `${this.consentBasePath}/${consentId}`,
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -426,8 +410,8 @@ export class M2Service {
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -442,17 +426,14 @@ export class M2Service {
    * @param token - Authentication token
    * @returns Promise with success status
    */
-  async revokeConsent(
-    consentId: string,
-    token: string
-  ): Promise<{ success: boolean }> {
+  async revokeConsent(consentId: string, token: string): Promise<{ success: boolean }> {
     const response = await this.http.post<{ success: boolean }>(
       `${this.consentBasePath}/${consentId}/revoke`,
       {},
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -464,7 +445,6 @@ export class M2Service {
   // ======================
   // Health Records
   // ======================
-
 
   /**
    * Fetch health records
@@ -489,8 +469,8 @@ export class M2Service {
       `${this.basePath}/patients/${patientId}/records?${queryParams.toString()}`,
       {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -517,8 +497,8 @@ export class M2Service {
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       }
     );
     if (!response.success || !response.data) {
@@ -533,18 +513,12 @@ export class M2Service {
    * @param token - Authentication token
    * @returns Promise with health record details
    */
-  async getHealthRecord(
-    recordId: string,
-    token: string
-  ): Promise<HealthRecord> {
-    const response = await this.http.get<HealthRecord>(
-      `${this.basePath}/records/${recordId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    );
+  async getHealthRecord(recordId: string, token: string): Promise<HealthRecord> {
+    const response = await this.http.get<HealthRecord>(`${this.basePath}/records/${recordId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     if (!response.success || !response.data) {
       throw new Error('Failed to get health record');
     }
@@ -555,17 +529,15 @@ export class M2Service {
   // Authentication
   // ======================
 
-
   /**
    * Initiate authentication
    * @param abhaAddress - ABHA address for authentication
    * @returns Promise with transaction ID
    */
   async initiateAuth(abhaAddress: string): Promise<{ txnId: string }> {
-    const response = await this.http.post<{ txnId: string }>(
-      `${this.basePath}/auth/initiate`,
-      { abhaAddress }
-    );
+    const response = await this.http.post<{ txnId: string }>(`${this.basePath}/auth/initiate`, {
+      abhaAddress,
+    });
     if (!response.success || !response.data) {
       throw new Error('Failed to initiate authentication');
     }
@@ -579,10 +551,10 @@ export class M2Service {
    * @returns Promise with authentication token
    */
   async verifyAuthOTP(txnId: string, otp: string): Promise<{ token: string }> {
-    const response = await this.http.post<{ token: string }>(
-      `${this.basePath}/auth/verify-otp`,
-      { txnId, otp }
-    );
+    const response = await this.http.post<{ token: string }>(`${this.basePath}/auth/verify-otp`, {
+      txnId,
+      otp,
+    });
     if (!response.success || !response.data) {
       throw new Error('Failed to verify OTP');
     }

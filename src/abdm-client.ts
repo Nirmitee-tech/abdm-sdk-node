@@ -4,7 +4,6 @@ import { M1Service } from './services/m1.service';
 import { M2Service } from './services/m2.service';
 import { M3Service } from './services/m3.service';
 
-
 /**
  * Main client for interacting with the Ayushman Bharat Digital Mission (ABDM) APIs
  */
@@ -39,7 +38,7 @@ export class ABDMClient {
     const effectiveConfig: ABDMConfig = {
       basePath: 'https://dev.abdm.gov.in/gateway',
       useSandbox: true,
-      ...config
+      ...config,
     };
 
     this.http = new HttpClient(effectiveConfig);
@@ -57,14 +56,14 @@ export class ABDMClient {
     if (!this.http) {
       throw new Error('HTTP client not initialized');
     }
-    
+
     // Set the token using the public setter
     this.http.authToken = token;
-    
+
     // Calculate expiry time (5 minutes before actual expiry to be safe)
     const expiryTime = Date.now() + (expiresIn - 300) * 1000;
     const expiryDate = new Date(expiryTime);
-    
+
     // Set the expiry in the http client using the public setter
     this.http.tokenExpiry = expiryDate;
   }
@@ -95,16 +94,16 @@ export class ABDMClient {
     if (!this.http) {
       return false;
     }
-    
+
     // Use the public getter methods
     const authToken = this.http.authToken;
     const tokenExpiry = this.http.tokenExpiry;
-    
+
     // If we don't have a token or expiry, it's not valid
     if (!authToken || !tokenExpiry) {
       return false;
     }
-    
+
     // Check if the token is expired
     // tokenExpiry is already a Date object, so we can compare directly
     const now = new Date();

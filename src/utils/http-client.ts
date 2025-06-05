@@ -1,4 +1,10 @@
-import axios, { AxiosError, AxiosHeaders, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, {
+  AxiosError,
+  AxiosHeaders,
+  AxiosInstance,
+  AxiosRequestConfig,
+  AxiosResponse,
+} from 'axios';
 import * as crypto from 'crypto';
 
 // Extend AxiosRequestConfig to include our custom properties
@@ -62,13 +68,13 @@ export class HttpClient {
       timeout: this.config.timeout,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
     });
 
     // Add request interceptor for auth
     this.client.interceptors.request.use(
-      async (axiosConfig) => {
+      async axiosConfig => {
         // Cast to InternalAxiosRequestConfig for internal manipulation if needed, but ensure it's compatible.
         // For Axios interceptors, the config param is InternalAxiosRequestConfig.
         const internalConfig = axiosConfig as import('axios').InternalAxiosRequestConfig;
@@ -86,7 +92,8 @@ export class HttpClient {
         let currentToken = customAuthToken || this._authToken;
         let currentTokenExpiry = this._tokenExpiry;
 
-        if (currentToken && !customAuthToken) { // Only check expiry for internally managed token
+        if (currentToken && !customAuthToken) {
+          // Only check expiry for internally managed token
           if (currentTokenExpiry && new Date() >= currentTokenExpiry) {
             console.log('Internal token expired.');
             currentToken = null; // Token expired
@@ -114,7 +121,7 @@ export class HttpClient {
         if (currentToken) {
           (internalConfig.headers as AxiosHeaders).set('Authorization', `Bearer ${currentToken}`);
         }
-        
+
         // Ensure standard headers are present if not already set by specific request
         if (!(internalConfig.headers as AxiosHeaders).has('Content-Type')) {
           (internalConfig.headers as AxiosHeaders).set('Content-Type', 'application/json');
@@ -130,7 +137,7 @@ export class HttpClient {
 
         return internalConfig;
       },
-      (error) => Promise.reject(error)
+      error => Promise.reject(error)
     );
   }
 
@@ -166,10 +173,7 @@ export class HttpClient {
   /**
    * Make a GET request
    */
-  public async get<T = any>(
-    url: string,
-    options: RequestOptions = {}
-  ): Promise<APIResponse<T>> {
+  public async get<T = any>(url: string, options: RequestOptions = {}): Promise<APIResponse<T>> {
     return this.request('GET', url, undefined, options);
   }
 
@@ -198,10 +202,7 @@ export class HttpClient {
   /**
    * Make a DELETE request
    */
-  public async delete<T = any>(
-    url: string,
-    options: RequestOptions = {}
-  ): Promise<APIResponse<T>> {
+  public async delete<T = any>(url: string, options: RequestOptions = {}): Promise<APIResponse<T>> {
     return this.request('DELETE', url, undefined, options);
   }
 
@@ -238,7 +239,8 @@ export class HttpClient {
 
     // The actual Cert API from Postman M1 is: https://abhasbx.abdm.gov.in/abha/api/v3/profile/public/certificate
     // This request requires an Authorization token.
-    const absolutePublicKeyUrl = 'https://abhasbx.abdm.gov.in/abha/api/v3/profile/public/certificate';
+    const absolutePublicKeyUrl =
+      'https://abhasbx.abdm.gov.in/abha/api/v3/profile/public/certificate';
 
     try {
       // Axios will use the absolute URL if provided, ignoring the instance's baseURL.
@@ -249,8 +251,11 @@ export class HttpClient {
         return this._publicKey!;
       } else {
         console.error('Failed to fetch public key:', response.error);
-        const errorMessage = typeof response.error === 'string' ? response.error : response.error?.message;
-        throw new Error(`Failed to fetch public key. Status: ${response.status}, Error: ${errorMessage}`);
+        const errorMessage =
+          typeof response.error === 'string' ? response.error : response.error?.message;
+        throw new Error(
+          `Failed to fetch public key. Status: ${response.status}, Error: ${errorMessage}`
+        );
       }
     } catch (error) {
       console.error('Error fetching public key:', error);
@@ -300,7 +305,7 @@ export class HttpClient {
         timeout: options.timeout || this.config.timeout,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
           ...(options.headers || {}),
         },
       };
@@ -326,13 +331,13 @@ export class HttpClient {
       if (error.message === 'Network Error') {
         throw error;
       }
-      
+
       if (error.response) {
         // The request was made and the server responded with a status code
         // that falls out of the range of 2xx
         const status = error.response.status || 500;
         const errorData = error.response.data || { message: error.message };
-        
+
         // Format the error response to match the expected structure
         const errorResponse = {
           success: false,
@@ -341,11 +346,11 @@ export class HttpClient {
           error: {
             code: status,
             message: errorData.message || 'An error occurred',
-            details: errorData
+            details: errorData,
           },
           headers: error.response.headers as Record<string, string>,
         };
-        
+
         return errorResponse;
       } else if (error.request) {
         // The request was made but no response was received
@@ -356,8 +361,8 @@ export class HttpClient {
           error: {
             code: 0,
             message: 'No response received from server',
-            details: {}
-          }
+            details: {},
+          },
         };
       } else {
         // Something happened in setting up the request that triggered an Error
@@ -368,8 +373,8 @@ export class HttpClient {
           error: {
             code: 0,
             message: error.message || 'Unknown error occurred',
-            details: {}
-          }
+            details: {},
+          },
         };
       }
     }

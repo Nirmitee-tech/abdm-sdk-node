@@ -2,7 +2,7 @@
  * Types for M1 module (ABHA Enrollment and Management)
  */
 
-// --- Session Management --- 
+// --- Session Management ---
 export interface SessionRequest {
   clientId: string;
   clientSecret: string;
@@ -17,7 +17,7 @@ export interface SessionResponse {
   tokenType: string; // e.g., "Bearer"
 }
 
-// --- Aadhaar Based ABHA Enrollment --- 
+// --- Aadhaar Based ABHA Enrollment ---
 
 // Note: Original OTPSendRequest is commented out as m1.service.ts expects AadhaarSendOTPRequest.
 // Review if OTPSendRequest is used elsewhere or can be removed.
@@ -48,7 +48,7 @@ export interface AadhaarVerifyAndCreateABHARequest {
       otpValue: string; // Encrypted OTP if required by API, else plaintext
     };
     // Placeholder for other auth methods like demographics data
-    // demographics?: { ... }; 
+    // demographics?: { ... };
   };
   creationType: 'abha-id' | 'abha-address'; // Specifies what is being created
   preferredAbhaAddress?: string; // Optional: if creating/claiming an ABHA address
@@ -152,27 +152,30 @@ export interface EmailVerificationRequest {
 }
 
 // --- Profile Update ---
-export interface UpdateABHAProfileRequest extends Partial<Pick<ABHAProfileData,
-  'firstName' |
-  'middleName' |
-  'lastName' |
-  'gender' |
-  'dob' |
-  'yearOfBirth' |
-  'monthOfBirth' |
-  'dayOfBirth' |
-  'mobile' |
-  'email' |
-  'profilePhoto' |
-  'address' |
-  'stateCode' |
-  'districtCode' |
-  'pincode'
-  // Add other updatable fields as per API specification
->> {
+export interface UpdateABHAProfileRequest
+  extends Partial<
+    Pick<
+      ABHAProfileData,
+      | 'firstName'
+      | 'middleName'
+      | 'lastName'
+      | 'gender'
+      | 'dob'
+      | 'yearOfBirth'
+      | 'monthOfBirth'
+      | 'dayOfBirth'
+      | 'mobile'
+      | 'email'
+      | 'profilePhoto'
+      | 'address'
+      | 'stateCode'
+      | 'districtCode'
+      | 'pincode'
+      // Add other updatable fields as per API specification
+    >
+  > {
   txnId?: string; // May be required for some update operations or implicit via auth token
 }
-
 
 // --- ABHA Card ---
 export interface ABHACardResponse {

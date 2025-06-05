@@ -14,11 +14,13 @@ export interface ABDMConfig {
 export interface APIResponse<T = any> {
   success: boolean;
   data?: T;
-  error?: string | {
-    code?: string | number;
-    message: string;
-    details?: Record<string, unknown>;
-  };
+  error?:
+    | string
+    | {
+        code?: string | number;
+        message: string;
+        details?: Record<string, unknown>;
+      };
   status?: number;
   statusCode: number;
   headers?: Record<string, string>;
