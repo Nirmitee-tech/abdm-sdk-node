@@ -3,8 +3,7 @@
 Example showing how to register a new bridge service (HIP/HIU) in the ABDM network.
 
 ```typescript
-import { HttpClient } from '../../src/utils/http-client';
-import { M3Service } from '../../src/services/m3.service';
+import { ABDMClient } from '@nirmitee/abdm-sdk-node';
 
 // Initialize HTTP client
 const httpClient = new HttpClient({

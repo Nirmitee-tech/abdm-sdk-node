@@ -3,8 +3,7 @@
 Example showing how to retrieve ABHA profile information using an access token.
 
 ```typescript
-import { HttpClient } from '../../src/utils/http-client';
-import { M2Service } from '../../src/services/m2.service';
+import { ABDMClient } from '@nirmitee/abdm-sdk-node';
 
 // Initialize HTTP client
 const httpClient = new HttpClient({

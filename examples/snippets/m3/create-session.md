@@ -3,8 +3,7 @@
 Example showing how to create a session for M3 (Milestone 3) API operations.
 
 ```typescript
-import { HttpClient } from '../../src/utils/http-client';
-import { M3Service } from '../../src/services/m3.service';
+import { ABDMClient } from '@nirmitee/abdm-sdk-node';
 
 // Initialize HTTP client
 const httpClient = new HttpClient({

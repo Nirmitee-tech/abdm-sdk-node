@@ -3,8 +3,7 @@
 Example showing how to create a gateway session with the ABDM API.
 
 ```typescript
-import { HttpClient } from '../../src/utils/http-client';
-import { M1Service } from '../../src/services/m1.service';
+import { ABDMClient } from '@nirmitee/abdm-sdk-node';
 
 // Initialize HTTP client with your base URL
 const httpClient = new HttpClient({

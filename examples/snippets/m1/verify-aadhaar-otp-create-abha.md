@@ -3,8 +3,7 @@
 Example showing how to verify Aadhaar OTP and create an ABHA account.
 
 ```typescript
-import { HttpClient } from '../../src/utils/http-client';
-import { M1Service } from '../../src/services/m1.service';
+import { ABDMClient } from '@nirmitee/abdm-sdk-node';
 
 // Initialize HTTP client
 const httpClient = new HttpClient({

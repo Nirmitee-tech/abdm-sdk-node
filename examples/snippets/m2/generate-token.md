@@ -3,8 +3,7 @@
 Example showing how to generate a token for accessing ABHA profile information.
 
 ```typescript
-import { HttpClient } from '../../src/utils/http-client';
-import { M2Service } from '../../src/services/m2.service';
+import { ABDMClient } from '@nirmitee/abdm-sdk-node';
 
 // Initialize HTTP client
 const httpClient = new HttpClient({
