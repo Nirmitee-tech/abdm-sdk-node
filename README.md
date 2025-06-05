@@ -127,10 +127,16 @@ try {
 ```typescript
 try {
   const facilityData = {
-    // Required facility information
     healthFacilityId: 'FAC123',
     name: 'Sample Health Facility',
-    // ... other facility details
+    type: 'HOSPITAL',
+    address: '123 Health St, City',
+    pincode: '110001',
+    state: 'Delhi',
+    district: 'New Delhi',
+    contactNumber: '+911234567890',
+    email: 'facility@example.com',
+    services: ['OPD', 'IPD', 'EMERGENCY']
   };
   
   const response = await client.m2.addUpdateHealthFacilityServices(facilityData);
@@ -147,13 +153,26 @@ try {
 ```typescript
 try {
   const consentRequest = {
-    // Consent request details
     purpose: 'TREATMENT',
     patient: {
       id: 'user@abdm',
-      // ... patient details
+      name: 'John Doe',
+      gender: 'M',
+      yearOfBirth: '1990',
+      address: '123 Main St, City',
+      identifiers: [
+        { type: 'MOBILE', value: '+919876543210' }
+      ]
     },
-    // ... other consent parameters
+    hiTypes: ['Prescription', 'DiagnosticReport'],
+    permission: {
+      accessMode: 'VIEW',
+      dateRange: {
+        from: '2025-01-01T00:00:00.000Z',
+        to: '2025-12-31T23:59:59.999Z'
+      },
+      dataEraseAt: '2026-01-31T23:59:59.999Z'
+    }
   };
   
   const response = await client.m3.requestHealthInformation(consentRequest);
@@ -195,18 +214,23 @@ Example error handling:
 
 ```typescript
 try {
-  const response = await client.m1.someMethod();
+  // Example: Verify if ABHA address exists
+  const response = await client.m2.verifyABHAAddress('user@abdm');
   if (!response.success) {
     console.error('API Error:', response.error?.message);
-    // Handle specific error codes
+    
+    // Handle specific error cases
     if (response.error?.code === 'INVALID_TOKEN') {
-      // Handle token refresh or re-authentication
+      // Re-authenticate and retry
+      await client.authenticate();
+      const retryResponse = await client.m2.verifyABHAAddress('user@abdm');
+      console.log('Retry result:', retryResponse);
     }
     return;
   }
   
-  // Use response.data
-  console.log('Success:', response.data);
+  // Process successful response
+  console.log('ABHA address exists:', response.data.exists);
 } catch (error) {
   console.error('Unexpected error:', error);
 }
