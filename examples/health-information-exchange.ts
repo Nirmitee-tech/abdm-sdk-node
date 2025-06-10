@@ -19,8 +19,8 @@ dotenv.config();
 
 // Configuration
 const config = {
-  clientId: process.env.ABDM_CLIENT_ID || 'your-client-id',
-  clientSecret: process.env.ABDM_CLIENT_SECRET || 'your-client-secret',
+  clientId: process.env.ABDM_CLIENT_ID,
+  clientSecret: process.env.ABDM_CLIENT_SECRET,
   environment: (process.env.ABDM_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
   // Your server's public URL where callbacks will be received
   callbackBaseUrl: process.env.CALLBACK_BASE_URL || 'http://localhost:3000',

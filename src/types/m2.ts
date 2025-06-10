@@ -28,20 +28,20 @@ export interface HealthFacilityRequest {
   }>;
 }
 
-export interface HealthFacilityResponse extends APIResponse {
-  data: {
-    facilityId: string;
-    facilityName: string;
-    HRP: Array<{
-      bridgeId: string;
-      hipName: string;
-      type: string;
-      active: boolean;
-      createdDate: string;
-      updatedDate: string;
-    }>;
-  };
+export interface HealthFacilityData {
+  facilityId: string;
+  facilityName: string;
+  HRP: Array<{
+    bridgeId: string;
+    hipName: string;
+    type: string;
+    active: boolean;
+    createdDate: string;
+    updatedDate: string;
+  }>;
 }
+
+export interface HealthFacilityResponse extends APIResponse<HealthFacilityData> {}
 
 export interface GenerateTokenRequest {
   abhaAddress: string;
@@ -50,14 +50,14 @@ export interface GenerateTokenRequest {
   // If the API expects a requestId in the request, it should be a direct field like 'requestId?: string;'.
 }
 
-export interface GenerateTokenResponse extends APIResponse {
-  data: {
-    token: string;
-    expiresIn: number;
-    refreshToken: string;
-    refreshExpiresIn: number;
-  };
+export interface GenerateTokenData {
+  token: string;
+  expiresIn: number;
+  refreshToken: string;
+  refreshExpiresIn: number;
 }
+
+export interface GenerateTokenResponse extends APIResponse<GenerateTokenData> {}
 
 // Consent Types
 export interface ConsentRequest {
@@ -95,16 +95,16 @@ export interface ConsentRequest {
   };
 }
 
-export interface ConsentResponse extends APIResponse {
-  data: {
-    consentId: string;
-    status: 'REQUESTED' | 'GRANTED' | 'DENIED' | 'EXPIRED' | 'REVOKED';
-    consentDetail: ConsentRequest;
-    signature: string;
-    createdAt: string;
-    lastUpdated: string;
-  };
+export interface ConsentData {
+  consentId: string;
+  status: 'REQUESTED' | 'GRANTED' | 'DENIED' | 'EXPIRED' | 'REVOKED';
+  consentDetail: ConsentRequest;
+  signature: string;
+  createdAt: string;
+  lastUpdated: string;
 }
+
+export interface ConsentResponse extends APIResponse<ConsentData> {}
 
 // Health Record Types
 export interface FetchRecordsOptions {
@@ -120,57 +120,57 @@ export interface HealthRecord {
   title: string;
   hiType: string;
   category: string;
-  content: any;
+  content: unknown;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface HealthRecordsResponse extends APIResponse {
-  data: {
-    records: HealthRecord[];
-    total: number;
-    limit: number;
-    offset: number;
-  };
+export interface HealthRecordsData {
+  records: HealthRecord[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
-export interface ABHAProfileResponse extends APIResponse {
-  data: {
-    abhaNumber: string;
-    preferredAbhaAddress: string;
-    mobile: string;
-    firstName: string;
-    middleName?: string;
-    lastName: string;
+export interface HealthRecordsResponse extends APIResponse<HealthRecordsData> {}
+
+export interface M2ABHAProfileData {
+  abhaNumber: string;
+  preferredAbhaAddress: string;
+  mobile: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  name: string;
+  yearOfBirth: string;
+  dayOfBirth: string;
+  monthOfBirth: string;
+  gender: 'M' | 'F' | 'O' | 'U';
+  profilePhoto: string;
+  status: string;
+  stateCode: string;
+  districtCode: string;
+  pincode: string;
+  address: string;
+  kycPhoto: string;
+  stateName: string;
+  districtName: string;
+  subdistrictName: string;
+  authMethods: string[];
+  tags: Record<string, unknown>;
+  kycVerified: boolean;
+  verificationStatus: string;
+  verificationType: string;
+  localizedDetails: {
     name: string;
-    yearOfBirth: string;
-    dayOfBirth: string;
-    monthOfBirth: string;
-    gender: 'M' | 'F' | 'O' | 'U';
-    profilePhoto: string;
-    status: string;
-    stateCode: string;
-    districtCode: string;
-    pincode: string;
-    address: string;
-    kycPhoto: string;
     stateName: string;
     districtName: string;
-    subdistrictName: string;
-    authMethods: string[];
-    tags: Record<string, unknown>;
-    kycVerified: boolean;
-    verificationStatus: string;
-    verificationType: string;
-    localizedDetails: {
-      name: string;
-      stateName: string;
-      districtName: string;
-      villageName: string;
-      townName: string;
-      gender: string;
-      localizedLabels: Record<string, string>;
-    };
-    createdDate: string;
+    villageName: string;
+    townName: string;
+    gender: string;
+    localizedLabels: Record<string, string>;
   };
+  createdDate: string;
 }
+
+export interface ABHAProfileResponse extends APIResponse<M2ABHAProfileData> {}

@@ -1,167 +1,109 @@
 /**
- * M2 Service Example
- * 
- * This example demonstrates how to use the M2 service to:
- * 1. Authenticate with ABDM
- * 2. Manage health facilities
- * 3. Work with ABHA profiles
- * 4. Handle consents and health records
+ * M2 Service Health Facility Management Example
+ *
+ * This example demonstrates how to use the M2 service for non-interactive
+ * health facility management tasks:
+ * 1. Authenticate the client.
+ * 2. Add or update a health facility's services.
+ * 3. Retrieve details for a specific health facility.
+ * 4. List all registered health facilities.
+ *
+ * NOTE: This workflow does not cover user-centric operations like profile updates,
+ * consent management, or fetching health records, which require an interactive
+ * user authentication flow to obtain a user-specific token.
  */
 
-import ABDMClient from '../src';
+import { ABDMClient } from '../src/abdm-client';
 import dotenv from 'dotenv';
+import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
 
 // Load environment variables
 dotenv.config();
 
 // Configuration
 const config = {
-  clientId: process.env.ABDM_CLIENT_ID || 'your-client-id',
-  clientSecret: process.env.ABDM_CLIENT_SECRET || 'your-client-secret',
+  clientId: process.env.ABDM_CLIENT_ID,
+  clientSecret: process.env.ABDM_CLIENT_SECRET,
   environment: (process.env.ABDM_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
+};
+
+// Test data for health facility
+const testFacility = {
+  facilityId: `FAC-${uuidv4().substring(0, 8)}`,
+  facilityName: 'Sunrise Clinic',
+  HRP: [
+    {
+      bridgeId: `BRIDGE-${uuidv4().substring(0, 8)}`,
+      hipName: 'Sunrise Clinic HIP',
+      type: 'HIP' as const,
+      active: true,
+    },
+  ],
 };
 
 // Initialize the client
 const client = new ABDMClient(config);
 
-async function runM2Examples() {
+async function runM2FacilityExample() {
+  console.log('=== Starting M2 Health Facility Management Example ===\n');
+
   try {
-    // 1. Authenticate
-    console.log('1. Authenticating with ABDM...');
+    // 1. Authenticate the client
+    console.log('1. Authenticating client...');
     await client.authenticate();
-    console.log('✅ Successfully authenticated with ABDM');
-    console.log('---');
+    console.log('✅ Client authenticated successfully!\n');
 
     // 2. Add/Update Health Facility Services
     console.log('2. Adding/Updating health facility services...');
-    const facilityData = {
-      facilityId: 'FACILITY_123',
-      name: 'City General Hospital',
-      type: 'HOSPITAL',
-      services: ['OPD', 'IPD', 'EMERGENCY'],
-      address: {
-        line: '456 Health St',
-        district: 'Bangalore',
-        state: 'Karnataka',
-        pincode: '560100',
-      },
-      contact: {
-        phone: '08012345678',
-        email: 'contact@cityhospital.com',
-      },
-    };
-
-    const facilityResponse = await client.m2.addUpdateHealthFacilityServices(facilityData);
-    console.log('✅ Health facility services updated');
-    console.log('Facility ID:', facilityResponse.facilityId);
-    console.log('---');
+    const facilityResponse = await client.m2.addUpdateHealthFacilityServices(testFacility);
+    if (!facilityResponse?.facilityId) {
+      throw new Error('Failed to add or update health facility services.');
+    }
+    console.log('✅ Health facility services updated successfully!');
+    console.log(`Facility ID: ${facilityResponse.facilityId}\n`);
 
     // 3. Get Health Facility Details
-    console.log('3. Getting health facility details...');
-    const facilityId = facilityResponse.facilityId;
-    const facilityDetails = await client.m2.getHealthFacility(facilityId);
-    console.log('✅ Facility details retrieved');
-    console.log('Facility Name:', facilityDetails.name);
-    console.log('Active Services:', facilityDetails.services);
-    console.log('---');
-
-    // 4. Update ABHA Profile
-    console.log('4. Updating ABHA profile...');
-    const profileUpdate = {
-      name: 'John R. Doe',
-      gender: 'M',
-      dateOfBirth: '1990-01-01',
-      address: {
-        line: '123 Main St',
-        district: 'Bangalore',
-        state: 'Karnataka',
-        pincode: '560001',
-      },
-      identifiers: [
-        {
-          type: 'MOBILE',
-          value: '9876543210',
-        },
-      ],
-    };
-
-    const authToken = 'your-auth-token'; // Get this from login/authentication
-    const profileResponse = await client.m2.updateABHAProfile(profileUpdate, authToken);
-    console.log('✅ Profile updated successfully');
-    console.log('Profile ID:', profileResponse.profileId);
-    console.log('---');
-
-    // 5. Search ABHA Profiles
-    console.log('5. Searching ABHA profiles...');
-    const searchResults = await client.m2.searchABHAProfiles(
-      'John',
-      authToken
-    );
-    console.log('✅ Search completed');
-    console.log(`Found ${searchResults.length} matching profiles`);
-    console.log('---');
-
-    // 6. Fetch Health Records
-    console.log('6. Fetching health records...');
-    const patientId = 'PATIENT_123'; // Replace with actual patient ID
-    const records = await client.m2.fetchHealthRecords(
-      patientId,
-      authToken,
-      {
-        fromDate: '2023-01-01',
-        toDate: '2023-12-31',
-        hiTypes: ['OPConsultation', 'Prescription'],
-        limit: 10,
-      }
-    );
-    console.log('✅ Health records retrieved');
-    console.log(`Found ${records.length} records`);
-    if (records.length > 0) {
-      console.log('Latest record type:', records[0].type);
-      console.log('Date:', records[0].date);
+    console.log(`3. Getting details for facility: ${facilityResponse.facilityId}...`);
+    const facilityDetails = await client.m2.getHealthFacility(facilityResponse.facilityId);
+    if (!facilityDetails) {
+      throw new Error(`Failed to retrieve details for facility: ${facilityResponse.facilityId}`);
     }
-    console.log('---');
+    console.log('✅ Facility details retrieved successfully!');
+    console.log(`Facility Name: ${facilityDetails.facilityName}`);
+    console.log(`HRPs: ${JSON.stringify(facilityDetails.HRP, null, 2)}\n`);
 
-    // 7. Create Consent
-    console.log('7. Creating consent request...');
-    const consentRequest = {
-      purpose: {
-        text: 'Continuity of care',
-        code: 'CAREMGT',
-      },
-      patient: {
-        id: patientId,
-      },
-      hiTypes: ['Prescription', 'DiagnosticReport'],
-      permission: {
-        accessMode: 'VIEW',
-        dateRange: {
-          from: '2023-01-01T00:00:00.000Z',
-          to: '2023-12-31T23:59:59.999Z',
-        },
-        dataEraseAt: '2024-12-31T23:59:59.999Z',
-        frequency: {
-          unit: 'HOUR',
-          value: '1',
-        },
-      },
-    };
+    // 4. List All Health Facilities
+    console.log('4. Listing all registered health facilities...');
+    const allFacilities = await client.m2.listHealthFacilities();
+    if (!allFacilities) {
+      throw new Error('Failed to list health facilities.');
+    }
+    console.log(`✅ Found ${allFacilities.length} health facilities.`);
+    if (allFacilities.length > 0 && allFacilities[0]) {
+      console.log(`First facility in list: ${allFacilities[0].facilityName} (${allFacilities[0].facilityId})`);
+    }
+    console.log('\n');
 
-    const consentResponse = await client.m2.createConsent(consentRequest, authToken);
-    console.log('✅ Consent request created');
-    console.log('Consent ID:', consentResponse.consentId);
-    console.log('Request ID:', consentResponse.requestId);
-    console.log('---');
+    console.log('----------------------------------------------------');
+    console.log('NOTE: Operations like profile updates, consent management, and fetching');
+    console.log('health records require a user-specific token from an interactive flow.');
+    console.log('----------------------------------------------------\n');
 
-    console.log('🎉 M2 Service Examples Completed Successfully!');
-  } catch (error: any) {
-    console.error('❌ Error in M2 Example:', error.message);
-    if (error.response?.data) {
-      console.error('Error details:', error.response.data);
+    console.log('\n=== M2 Health Facility Management Example Completed Successfully ===');
+  } catch (error) {
+    console.error('❌ Error in M2 Facility Example:');
+    if (axios.isAxiosError(error)) {
+      console.error('Status:', error.response?.status);
+      console.error('Data:', error.response?.data);
+    } else if (error instanceof Error) {
+      console.error('Error:', error.message);
+    } else {
+      console.error('An unknown error occurred:', error);
     }
     process.exit(1);
   }
 }
 
-// Run the examples
-runM2Examples();
+// Run the M2 facility management example
+runM2FacilityExample();

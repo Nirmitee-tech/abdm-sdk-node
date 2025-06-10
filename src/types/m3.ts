@@ -128,6 +128,7 @@ export interface HealthInformationResponse {
   requestId: string;
   timestamp: string;
   hiRequest: {
+    transactionId: string;
     sessionStatus: 'REQUESTED' | 'ACKNOWLEDGED' | 'ERROR';
   };
 }

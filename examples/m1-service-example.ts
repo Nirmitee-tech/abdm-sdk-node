@@ -1,123 +1,89 @@
 /**
- * M1 Service Example
- * 
- * This example demonstrates how to use the M1 service to:
- * 1. Create a session
- * 2. Send and verify Aadhaar OTP
- * 3. Create ABHA with Aadhaar
- * 4. Manage ABHA address and mobile updates
+ * M1 Service Non-Interactive Example
+ *
+ * This example demonstrates how to use the M1 service for non-interactive tasks:
+ * 1. Get a client session (access token).
+ * 2. Retrieve the public key for data encryption.
+ *
+ * NOTE: This example does not cover interactive workflows like Aadhaar OTP generation
+ * or ABHA ID creation, as these require user interaction and encryption of sensitive data
+ * (Aadhaar number, OTP), which is beyond the scope of this simple demonstration.
  */
 
-import ABDMClient from '../src';
+import { ABDMClient } from '../src/abdm-client';
 import dotenv from 'dotenv';
+import axios from 'axios';
 
 // Load environment variables
 dotenv.config();
 
+// Ensure client ID and secret are configured
+if (!process.env.ABDM_CLIENT_ID || !process.env.ABDM_CLIENT_SECRET) {
+  console.error('Error: ABDM_CLIENT_ID and ABDM_CLIENT_SECRET must be set in the .env file.');
+  process.exit(1);
+}
+
 // Configuration
 const config = {
-  clientId: process.env.ABDM_CLIENT_ID || 'your-client-id',
-  clientSecret: process.env.ABDM_CLIENT_SECRET || 'your-client-secret',
+  clientId: process.env.ABDM_CLIENT_ID,
+  clientSecret: process.env.ABDM_CLIENT_SECRET,
   environment: (process.env.ABDM_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
 };
 
 // Initialize the client
 const client = new ABDMClient(config);
 
-async function runM1Examples() {
+async function runM1ServiceExample() {
+  console.log('=== Starting M1 Service Non-Interactive Example ===\n');
+
   try {
-    // 1. Create a session
-    console.log('1. Creating a new session...');
-    const session = await client.m1.createSession();
-    console.log('✅ Session created successfully');
-    console.log('Session ID:', session.data?.sessionId);
-    console.log('---');
+    // 1. Get a session token for the client
+    console.log('1. Getting a client session (access token)...');
+    const sessionResponse = await client.m1.getSession({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      grantType: 'client_credentials',
+    });
+    const accessToken = sessionResponse.data?.accessToken;
+    if (!accessToken) {
+      throw new Error('Failed to obtain access token.');
+    }
+    console.log('✅ Session created successfully!');
+    console.log(`Access Token: ${accessToken.substring(0, 15)}...\n`);
 
-    // 2. Send OTP to Aadhaar linked mobile number
-    const aadhaarNumber = 'XXXXXXXXXXXX'; // Replace with actual Aadhaar
-    console.log(`2. Sending OTP to Aadhaar number: ${aadhaarNumber}...`);
-    const otpResponse = await client.m1.sendAadhaarOTP(
-      aadhaarNumber,
-      'AADHAAR_VERIFICATION'
-    );
-    console.log('✅ OTP sent successfully');
-    console.log('Transaction ID:', otpResponse.data?.txnId);
-    console.log('---');
+    // 2. Get the public key for encryption
+    // In a real application, this key would be used to encrypt sensitive data (like Aadhaar number or OTP)
+    // before sending it to the ABDM APIs.
+    console.log('2. Retrieving the public key for data encryption...');
+    const publicKeyResponse = await client.m1.getPublicKey();
+    const publicKey = publicKeyResponse.data?.key;
+    if (!publicKey) {
+      throw new Error('Failed to retrieve public key.');
+    }
+    console.log('✅ Public key retrieved successfully!');
+    console.log(`Public Key: ${publicKey.substring(0, 30)}...\n`);
 
-    // In a real app, you would get this from user input
-    const otp = '123456'; // Replace with actual OTP
-    
-    // 3. Verify Aadhaar OTP
-    console.log('3. Verifying OTP...');
-    const verifyResponse = await client.m1.verifyAadhaarOTP(
-      otp,
-      otpResponse.data?.txnId || ''
-    );
-    console.log('✅ OTP verified successfully');
-    const authToken = verifyResponse.data?.token;
-    console.log('Auth Token:', authToken?.substring(0, 20) + '...');
-    console.log('---');
+    console.log('----------------------------------------------------');
+    console.log('NOTE: The methods for Aadhaar OTP and ABHA ID creation');
+    console.log('(sendAadhaarOTP, createAbhaIdByAadhaar) require');
+    console.log('encrypted payloads and are part of an interactive user flow.');
+    console.log('They are not demonstrated in this non-interactive example.');
+    console.log('----------------------------------------------------\n');
 
-    // 4. Create ABHA with Aadhaar
-    console.log('4. Creating ABHA with Aadhaar...');
-    const abhaData = {
-      txnId: verifyResponse.data?.txnId || '',
-      name: 'John Doe',
-      gender: 'M',
-      yearOfBirth: '1990',
-      monthOfBirth: '01',
-      dayOfBirth: '01',
-      address: {
-        line: '123 Main St',
-        district: 'Bangalore',
-        state: 'Karnataka',
-        pincode: '560001',
-      },
-      email: 'john.doe@example.com',
-    };
-
-    const abhaResponse = await client.m1.createABHAWithAadhaar(abhaData);
-    console.log('✅ ABHA created successfully');
-    const healthId = abhaResponse.data?.healthId;
-    console.log('Health ID:', healthId);
-    console.log('---');
-
-    // 5. Create or update ABHA address
-    console.log('5. Creating/Updating ABHA address...');
-    const abhaAddress = 'john.doe@abdm';
-    const addressResponse = await client.m1.createOrUpdateABHAAddress(
-      abhaAddress,
-      true, // preferred
-      authToken || ''
-    );
-    console.log('✅ ABHA address updated:', addressResponse.data?.message);
-    console.log('---');
-
-    // 6. Update mobile number
-    console.log('6. Updating mobile number...');
-    const mobile = '9876543210';
-    const mobileOtpResponse = await client.m1.sendMobileUpdateOTP(mobile, authToken || '');
-    console.log('✅ OTP sent to new mobile number');
-    
-    // Verify mobile OTP
-    const mobileOTP = '654321'; // In real app, get from user
-    const verifyMobileResponse = await client.m1.verifyMobileUpdateOTP(
-      mobileOTP,
-      mobileOtpResponse.data?.txnId || '',
-      authToken || ''
-    );
-    console.log('✅ Mobile number updated successfully');
-    console.log('---');
-
-    console.log('🎉 M1 Service Examples Completed Successfully!');
-  } catch (error: any) {
-    console.error('❌ Error in M1 Example:', error.message);
-    if (error.response?.data) {
-      console.error('Error details:', error.response.data);
+    console.log('\n=== M1 Service Example Completed Successfully ===');
+  } catch (error) {
+    console.error('❌ Error in M1 Service Example:');
+    if (axios.isAxiosError(error)) {
+      console.error('Status:', error.response?.status);
+      console.error('Data:', error.response?.data);
+    } else if (error instanceof Error) {
+      console.error('Error:', error.message);
+    } else {
+      console.error('An unknown error occurred:', error);
     }
     process.exit(1);
   }
 }
 
-// Run the examples
-runM1Examples();
+// Run the M1 service example
+runM1ServiceExample();

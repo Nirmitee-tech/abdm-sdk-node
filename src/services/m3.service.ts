@@ -8,6 +8,7 @@ import type {
   M3ConsentRequest,
   ConsentStatusResponse,
   HealthInformationRequest,
+  HealthInformationResponse,
   HealthInformationNotification,
 } from '../types/m3';
 
@@ -295,22 +296,20 @@ export class M3Service {
   async fetchHealthInformation(
     consentId: string,
     token: string
-  ): Promise<{
-    requestId: string;
-    timestamp: string;
-    hiRequest: {
-      transactionId: string;
-      sessionStatus: 'REQUESTED' | 'ACKNOWLEDGED' | 'ERROR';
-    };
-  }> {
-    const response = await this.http.get<any>(`${this.healthInfoBasePath}/fetch/${consentId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  ): Promise<HealthInformationResponse> {
+    const response = await this.http.get<HealthInformationResponse>(
+      `${this.healthInfoBasePath}/fetch/${consentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     if (!response.success || !response.data) {
-      throw new Error('Failed to fetch health information');
+      throw new Error(
+        `Failed to fetch health information: ${response.error?.message || 'Unknown error'}`
+      );
     }
 
     return response.data;

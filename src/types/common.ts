@@ -13,19 +13,25 @@ export interface ABDMConfig {
   debug?: boolean; // Enable debug logging
 }
 
-export interface APIResponse<T = any> {
+export interface APIErrorDetails {
+  code: string;
+  message: string;
+  attr: string;
+}
+
+export interface APIError {
+  code: string;
+  message: string;
+  details?: APIErrorDetails[];
+}
+
+export interface APIResponse<T> {
   success: boolean;
   data?: T;
-  error?:
-    | string
-    | {
-        code?: string | number;
-        message: string;
-        details?: Record<string, unknown>;
-      };
-  status?: number;
-  statusCode: number;
-  headers?: Record<string, string>;
+  error?: APIError;
+  status: number;
+  statusText: string;
+  headers?: Record<string, unknown>;
 }
 
 export interface RequestOptions {
@@ -33,15 +39,4 @@ export interface RequestOptions {
   params?: Record<string, unknown>;
   timeout?: number;
   authToken?: string;
-}
-
-export interface ABDMError {
-  code?: string | number;
-  message: string;
-  details?: Record<string, unknown> | Array<Record<string, unknown>>;
-}
-
-export interface ABDMErrorResponse {
-  error: ABDMError;
-  // Depending on API, there might be other top-level fields like requestId, timestamp, etc.
 }

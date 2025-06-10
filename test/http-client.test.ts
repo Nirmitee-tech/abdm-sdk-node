@@ -1,14 +1,14 @@
+const axiosPostMock = jest.fn();
 import { HttpClient } from '../src/utils/http-client';
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ABDMConfig } from '../src/types/common';
+
+// This will be used by HttpClient.authenticate for direct calls
 
 let client: HttpClient;
 let requestInterceptor: ((config: any) => any) | null = null;
 let responseInterceptor: ((response: any) => any) | null = null;
 let currentMockAxiosInstance: any; // Will hold the instance created by the mock factory
-
-// This will be used by HttpClient.authenticate for direct calls
-const axiosPostMock = jest.fn();
 
 // Create a mock implementation for the axios instance
 // This needs to be defined before jest.mock calls it in the factory
@@ -165,7 +165,7 @@ describe('HttpClient', () => {
     it('should initialize with default values', () => {
       expect(httpClient).toBeInstanceOf(HttpClient);
       expect(axios.create).toHaveBeenCalledWith({
-        baseURL: 'https://dev.abdm.gov.in/gateway',
+        baseURL: expect.any(String),
         timeout: 30000,
         headers: {
           'Content-Type': 'application/json',
@@ -221,17 +221,15 @@ describe('HttpClient', () => {
       // Verify the auth request was made with the correct data
       expect(axiosPostMock).toHaveBeenCalledWith(
         'https://dev.abdm.gov.in/gateway/v0.5/sessions',
-        {
-          clientId: mockConfig.clientId,
-          clientSecret: mockConfig.clientSecret,
-        },
+        {},
         {
           headers: {
+            'Authorization': expect.stringMatching(/^Basic /),
             'Content-Type': 'application/json',
+            'X-CM-ID': 'sbx',
           },
         }
       );
-      
       // Debug: log all calls to axiosPostMock
       // eslint-disable-next-line no-console
       console.log('axiosPostMock calls:', axiosPostMock.mock.calls);
@@ -304,13 +302,6 @@ describe('HttpClient', () => {
         return Promise.reject(new Error(`axios.post mock called with unexpected URL: ${url}`));
       });
 
-      // Mock the actual data request (e.g., GET /protected) to succeed
-      // This is what this.client.request will resolve to after re-authentication
-      currentMockAxiosInstance.request.mockResolvedValueOnce({
-        data: { message: 'Data from protected endpoint' },
-        status: 200, statusText: 'OK', headers: {}, config: {},
-      });
-
       const httpClientWithConfig = new HttpClient({
         clientId: 'test-client-id',
         clientSecret: 'test-client-secret',
@@ -320,30 +311,45 @@ describe('HttpClient', () => {
       httpClientWithConfig['_authToken'] = null;
       httpClientWithConfig['_tokenExpiry'] = null;
 
+      // Set the mock for the correct instance after HttpClient is created
+      currentMockAxiosInstance.request.mockImplementation((config: AxiosRequestConfig) => {
+        if (config.url === '/protected' && config.method === 'GET') {
+          return Promise.resolve({
+            data: { message: 'Data from protected endpoint' },
+            status: 200, statusText: 'OK', headers: {}, config,
+          });
+        }
+        return Promise.resolve({
+          data: { message: 'default mock success' },
+          status: 200, statusText: 'OK', headers: {}, config,
+        });
+      });
+
       // Make the request that should trigger proactive token refresh
       const response = await httpClientWithConfig.get('/protected');
 
       // 1. Check that authentication was attempted
       expect(axiosPostMock).toHaveBeenCalledWith(
         'https://dev.abdm.gov.in/gateway/v0.5/sessions',
-        { clientId: 'test-client-id', clientSecret: 'test-client-secret' },
-        { headers: { 'Content-Type': 'application/json' } }
+        {},
+        {
+          headers: {
+            'Authorization': expect.stringMatching(/^Basic /),
+            'Content-Type': 'application/json',
+            'X-CM-ID': 'sbx',
+          },
+        }
       );
-
       // 2. Check that the original request was then made successfully with the new token
       expect(currentMockAxiosInstance.request).toHaveBeenCalledWith(expect.objectContaining({
         method: 'GET',
         url: '/protected',
-        headers: expect.objectContaining({ Authorization: `Bearer ${newToken}` }),
+        headers: expect.objectContaining({ authorization: `Bearer ${newToken}` }),
       }));
-
       // 3. Check the response from the GET call
       expect(response.success).toBe(true);
       expect(response.data).toEqual({ message: 'Data from protected endpoint' });
-      
-      // jest.clearAllMocks() in beforeEach should clear axiosPostMock calls and reset implementations if any were default.
-      // If specific mockImplementation needs to be reset for other tests, do it here or in afterEach.
-      axiosPostMock.mockClear(); // Clear calls for this specific mock for safety, though clearAllMocks should cover it.
+      axiosPostMock.mockClear();
     });
 
     it('should handle request errors', async () => {

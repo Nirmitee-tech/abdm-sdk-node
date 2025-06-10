@@ -16,8 +16,8 @@ dotenv.config();
 
 // Configuration
 const config = {
-  clientId: process.env.ABDM_CLIENT_ID || 'your-client-id',
-  clientSecret: process.env.ABDM_CLIENT_SECRET || 'your-client-secret',
+  clientId: process.env.ABDM_CLIENT_ID,
+  clientSecret: process.env.ABDM_CLIENT_SECRET,
   environment: (process.env.ABDM_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
 };
 

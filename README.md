@@ -194,6 +194,83 @@ The `ABDMClient` accepts the following configuration options:
 | `useSandbox` | boolean | No | `true` | Whether to use sandbox environment |
 | `timeout` | number | No | `30000` | Request timeout in milliseconds |
 
+## Logging
+
+The SDK uses [Pino](https://getpino.io/) for logging. By default, logs are written to both the console (pretty-printed) and a file (`logs/abdm-sdk.log`).
+
+### Log Levels
+
+You can control the log level using the `LOG_LEVEL` environment variable:
+
+- `trace`: Log everything (most verbose)
+- `debug`: Debug information
+- `info`: General information (default)
+- `warn`: Warnings
+- `error`: Errors only
+- `fatal`: Fatal errors only
+
+Example:
+```bash
+LOG_LEVEL=debug node your-script.js
+```
+
+### Log File Rotation
+
+For production use, consider using a log rotation tool like:
+- [logrotate](https://linux.die.net/man/8/logrotate) (Linux)
+- [rotating-file-stream](https://www.npmjs.com/package/rotating-file-stream) (Node.js)
+
+### Example Usage
+
+```typescript
+import { logger } from '@nirmitee/abdm-sdk-node';
+
+// Log at different levels
+logger.trace('Trace message');
+logger.debug('Debug information', { some: 'data' });
+logger.info('Informational message');
+logger.warn('Warning message');
+logger.error('Error message', new Error('Something went wrong'));
+logger.fatal('Fatal error', { error: new Error('Critical failure') });
+
+// Log with context
+logger.info('User logged in', {
+  userId: '123',
+  timestamp: new Date().toISOString()
+});
+```
+
+### Log Format
+
+Logs include the following fields by default:
+- `level`: The log level (trace, debug, info, warn, error, fatal)
+- `time`: ISO timestamp
+- `msg`: The log message
+- Additional context objects are merged into the log entry
+
+### Disabling File Logging
+
+To disable file logging, set the `DISABLE_FILE_LOGGING` environment variable to `true`:
+
+```bash
+DISABLE_FILE_LOGGING=true node your-script.js
+```
+
+### Custom Logger
+
+You can provide a custom logger instance that follows the Pino interface:
+
+```typescript
+import pino from 'pino';
+
+const customLogger = pino({
+  // Your custom Pino configuration
+});
+
+// Use the custom logger
+logger.setLogger(customLogger);
+```
+
 ## Error Handling
 
 All API methods return a standardized response object with the following structure:

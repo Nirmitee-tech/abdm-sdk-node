@@ -10,16 +10,18 @@
  * 6. Fetch ABHA profile
  */
 
-import { ABDMClient } from '../src/abdm-client';
+import { ABDMClient } from '../src';
+import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
+import axios from 'axios';
 
 // Load environment variables
 dotenv.config();
 
 // Configuration
 const config = {
-  clientId: process.env.ABDM_CLIENT_ID || 'your-client-id',
-  clientSecret: process.env.ABDM_CLIENT_SECRET || 'your-client-secret',
+  clientId: process.env.ABDM_CLIENT_ID,
+  clientSecret: process.env.ABDM_CLIENT_SECRET,
   environment: (process.env.ABDM_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
 };
 
@@ -41,8 +43,10 @@ const testData = {
 // Initialize the client
 const client = new ABDMClient(config);
 
-async function runAbhaCreationWorkflow() {
-  console.log('=== Starting ABHA Creation Workflow ===\n');
+export async function runAbhaCreationWorkflow() {
+  console.log('🚀 Starting ABHA Creation Workflow...\n');
+  console.log('Test Data:', testData);
+  console.log('----------------------------------------\n');
 
   try {
     // 1. Authenticate with ABDM
@@ -52,84 +56,73 @@ async function runAbhaCreationWorkflow() {
 
     // 2. Generate Aadhaar OTP
     console.log('2. Generating Aadhaar OTP...');
-    const aadhaarOtpResponse = await client.m1.generateAadhaarOtp({
-      aadhaar: testData.aadhaarNumber,
+    const otpTxnId = uuidv4();
+    const aadhaarOtpResponse = await client.m1.sendAadhaarOTP({
+      loginId: testData.aadhaarNumber, // Note: As per docs, this should be encrypted.
+      loginHint: 'aadhaar',
+      scope: ['abha-enrol'],
+      otpSystem: 'aadhaar',
+      txnId: otpTxnId,
     });
-    console.log('✅ Aadhaar OTP generated successfully!');
-    console.log(`Transaction ID: ${aadhaarOtpResponse.txnId}\n`);
 
-    // 3. Verify Aadhaar OTP
-    console.log('3. Verifying Aadhaar OTP...');
-    const aadhaarVerifyResponse = await client.m1.verifyAadhaarOtp({
-      otp: testData.otp,
-      txnId: aadhaarOtpResponse.txnId,
-    });
-    console.log('✅ Aadhaar OTP verified successfully!');
-    console.log(`Aadhaar Token: ${aadhaarVerifyResponse.token}\n`);
-
-    // 4. Create ABHA using Aadhaar
-    console.log('4. Creating ABHA using Aadhaar...');
-    const abhaCreateResponse = await client.m1.createAbhaWithAadhaar({
-      aadhaarToken: aadhaarVerifyResponse.token,
-      txnId: aadhaarOtpResponse.txnId,
-      consent: true,
-      consentVersion: '1.0',
-    });
-    console.log('✅ ABHA created successfully!');
-    console.log(`Health ID: ${abhaCreateResponse.healthId}`);
-    console.log(`Health ID Number: ${abhaCreateResponse.healthIdNumber}\n`);
-
-    // 5. Generate Mobile OTP
-    console.log('5. Generating Mobile OTP...');
-    const mobileOtpResponse = await client.m1.generateMobileOtp({
-      mobile: testData.mobileNumber,
-    });
-    console.log('✅ Mobile OTP sent successfully!');
-    console.log(`Transaction ID: ${mobileOtpResponse.txnId}\n`);
-
-    // 6. Verify Mobile OTP
-    console.log('6. Verifying Mobile OTP...');
-    await client.m1.verifyMobileOtp({
-      otp: testData.otp,
-      txnId: mobileOtpResponse.txnId,
-    });
-    console.log('✅ Mobile number verified and linked successfully!\n');
-
-    // 7. Create ABHA Address
-    console.log('7. Creating ABHA Address...');
-    const abhaAddressResponse = await client.m1.createAbhaAddress({
-      address: testData.abhaAddress,
-      isDefault: true,
-    });
-    console.log('✅ ABHA Address created successfully!');
-    console.log(`ABHA Address: ${abhaAddressResponse.abhaAddress}\n`);
-
-    // 8. Get ABHA Profile
-    console.log('8. Fetching ABHA Profile...');
-    const profile = await client.m1.getAbhaProfile();
-    console.log('✅ ABHA Profile fetched successfully!');
-    console.log('Profile:', JSON.stringify(profile, null, 2));
-
-    console.log('\n=== ABHA Creation Workflow Completed Successfully ===');
-    console.log('✅ Your ABHA has been created successfully!');
-    console.log(`📱 ABHA Address: ${abhaAddressResponse.abhaAddress}`);
-    console.log(`🔢 Health ID: ${abhaCreateResponse.healthIdNumber}`);
-
-  } catch (error) {
-    console.error('❌ Error in ABHA Creation Workflow:');
-    
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      console.error('Status:', error.response.status);
-      console.error('Data:', error.response.data);
-    } else if (error.request) {
-      // The request was made but no response was received
-      console.error('No response received:', error.request);
-    } else {
-      // Something happened in setting up the request
-      console.error('Error:', error.message);
+    if (!aadhaarOtpResponse.data?.txnId) {
+      throw new Error('Failed to get transaction ID for Aadhaar OTP.');
     }
-    
+    const aadhaarOtpTxnId = aadhaarOtpResponse.data.txnId;
+    console.log('✅ Aadhaar OTP generated successfully!');
+    console.log(`Transaction ID: ${aadhaarOtpTxnId}\n`);
+
+    // 3. Create ABHA ID by verifying Aadhaar OTP
+    console.log('3. Creating ABHA ID by verifying Aadhaar OTP...');
+    const createAbhaTxnId = uuidv4();
+    const abhaCreationResponse = await client.m1.createAbhaIdByAadhaar({
+      txnId: createAbhaTxnId,
+      authData: {
+        authMethods: ['otp'],
+        otp: {
+          otpValue: testData.otp, // Note: As per docs, this should be encrypted.
+          txnId: aadhaarOtpTxnId,
+        },
+      },
+      consent: {
+        code: 'abha-enrol', // Example consent code
+        version: '1.0.0', // Example consent version
+      },
+    });
+    console.log('✅ ABHA ID created successfully!');
+    console.log(
+      'ABHA creation response:',
+      JSON.stringify(abhaCreationResponse.data, null, 2),
+      '\n'
+    );
+
+    console.log('🎉 ABHA Creation Workflow Completed Successfully! 🎉');
+    if (abhaCreationResponse.data?.phrAddress) {
+      console.log(
+        'Your new ABHA Address is:',
+        abhaCreationResponse.data.phrAddress
+      );
+    }
+
+    } catch (error) {
+    console.error('❌ Error in ABHA Creation Workflow:');
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        console.error('Status:', error.response.status);
+        console.error('Data:', error.response.data);
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+      } else {
+        // Something happened in setting up the request
+        console.error('Error:', error.message);
+      }
+    } else if (error instanceof Error) {
+      console.error('Error:', error.message);
+    } else {
+      console.error('An unknown error occurred:', error);
+    }
     throw error;
   }
 }

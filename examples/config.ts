@@ -3,8 +3,8 @@
 
 export const config = {
   // Sandbox environment
-  clientId: process.env.ABDM_CLIENT_ID || 'your-client-id',
-  clientSecret: process.env.ABDM_CLIENT_SECRET || 'your-client-secret',
+  clientId: process.env.ABDM_CLIENT_ID,
+  clientSecret: process.env.ABDM_CLIENT_SECRET,
   environment: 'sandbox' as const, // or 'production'
   
   // Common test data

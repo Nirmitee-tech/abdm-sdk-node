@@ -1,199 +1,97 @@
 /**
- * M3 Service Example
- * 
- * This example demonstrates how to use the M3 service to:
- * 1. Create a session
- * 2. Manage bridge services
- * 3. Handle HIU consent requests
- * 4. Process health information requests
+ * M3 Service Setup Example
+ *
+ * This example demonstrates the non-interactive setup steps for the M3 service (HIU):
+ * 1. Create a client session to obtain an access token.
+ * 2. Register a bridge service, which acts as an endpoint for ABDM callbacks.
+ *
+ * NOTE: This example does not cover the interactive HIU workflows such as consent
+ * requests or health information fetching. These are complex, asynchronous processes
+ * that require a backend server to handle callbacks from the ABDM gateway and are
+ * initiated by user actions in a real application.
  */
 
-import ABDMClient from '../src';
+import { ABDMClient } from '../src/abdm-client';
 import dotenv from 'dotenv';
+import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
 
 // Load environment variables
 dotenv.config();
 
 // Configuration
 const config = {
-  clientId: process.env.ABDM_CLIENT_ID || 'your-client-id',
-  clientSecret: process.env.ABDM_CLIENT_SECRET || 'your-client-secret',
+  clientId: process.env.ABDM_CLIENT_ID,
+  clientSecret: process.env.ABDM_CLIENT_SECRET,
   environment: (process.env.ABDM_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
 };
 
 // Initialize the client
 const client = new ABDMClient(config);
 
-async function runM3Examples() {
+async function runM3SetupExample() {
+  console.log('=== Starting M3 Service Setup Example ===\n');
+
   try {
-    // 1. Create a session
-    console.log('1. Creating a session...');
-    const session = await client.m3.createSession(
-      config.clientId,
-      config.clientSecret
-    );
-    console.log('✅ Session created successfully');
-    console.log('Access Token:', session.accessToken.substring(0, 20) + '...');
-    console.log('Expires in:', session.expiresIn, 'seconds');
-    console.log('---');
-
+    // 1. Create a session to get an access token
+    console.log('1. Creating a client session...');
+    const session = await client.m3.createSession(config.clientId, config.clientSecret);
+    if (!session?.accessToken) {
+      throw new Error('Failed to create a session or obtain an access token.');
+    }
     const authToken = session.accessToken;
-    const bridgeId = 'YOUR_BRIDGE_ID'; // Replace with your bridge ID
+    console.log('✅ Session created successfully!');
+    console.log(`Access Token: ${authToken.substring(0, 20)}...\n`);
 
-    // 2. Update Bridge URL
-    console.log('2. Updating bridge URL...');
-    const updateResponse = await client.m3.updateBridgeUrl(
-      bridgeId,
-      'https://your-bridge-url.com/callback',
-      authToken
-    );
-    console.log('✅ Bridge URL updated:', updateResponse.success);
-    console.log('---');
-
-    // 3. Register a Bridge Service
-    console.log('3. Registering a new bridge service...');
+    // 2. Register a Bridge Service (HIU)
+    // This is a one-time setup step to register your service with ABDM.
+    // The endpoint specified here is where ABDM will send callbacks.
+    console.log('2. Registering a new bridge service (HIU)...');
     const serviceData = {
-      id: 'YOUR_SERVICE_ID',
-      name: 'Health Service Provider',
-      types: ['HIP', 'HIU'],
+      id: `HIU-${uuidv4().substring(0, 8)}`,
+      name: 'My Health Information User Service',
+      types: ['HIU'],
       endpoints: {
-        hipEndpoints: [
-          {
-            use: 'registration',
-            connectionType: 'HTTPS',
-            address: 'https://your-service.com/api/registration',
-          },
-          {
-            use: 'data-upload',
-            connectionType: 'HTTPS',
-            address: 'https://your-service.com/api/data-upload',
-          },
-        ],
         hiuEndpoints: [
           {
-            use: 'registration',
+            use: 'data-push',
             connectionType: 'HTTPS',
-            address: 'https://your-service.com/api/hiu/registration',
+            address: 'https://my-hiu-service.com/api/v1/data-push',
           },
         ],
       },
       active: true,
     };
 
-    const serviceResponse = await client.m3.registerBridgeService(
-      serviceData,
-      authToken
-    );
-    console.log('✅ Service registered successfully');
-    console.log('Service ID:', serviceResponse.id);
-    console.log('Service Name:', serviceResponse.name);
-    console.log('---');
-
-    // 4. Find Services by Bridge ID
-    console.log('4. Finding services by bridge ID...');
-    const services = await client.m3.findServicesByBridgeId(bridgeId, authToken);
-    console.log(`✅ Found ${services.services.length} services`);
-    services.services.forEach((service, index) => {
-      console.log(`  ${index + 1}. ${service.name} (${service.id})`);
-      console.log(`     Types: ${service.types.join(', ')}`);
-      console.log(`     Active: ${service.active}`);
-    });
-    console.log('---');
-
-    // 5. Initialize Consent Request
-    console.log('5. Initializing consent request...');
-    const consentRequest = {
-      requestId: 'req_' + Date.now(),
-      timestamp: new Date().toISOString(),
-      consent: {
-        purpose: {
-          text: 'Continuity of care',
-          code: 'CAREMGT',
-          refUri: 'https://example.org/policies/privacy',
-        },
-        patient: {
-          id: 'john.doe@abdm',
-        },
-        hiTypes: ['Prescription', 'DiagnosticReport'],
-        permission: {
-          accessMode: 'VIEW',
-          dateRange: {
-            from: new Date().toISOString(),
-            to: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          },
-          dataEraseAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-          frequency: {
-            unit: 'HOUR',
-            value: '1',
-            repeats: 1,
-          },
-        },
-      },
-    };
-
-    const consentResponse = await client.m3.initConsentRequest(
-      consentRequest,
-      authToken
-    );
-    console.log('✅ Consent request initialized');
-    console.log('Request ID:', consentResponse.requestId);
-    console.log('---');
-
-    // 6. Check Consent Request Status
-    console.log('6. Checking consent request status...');
-    const requestId = consentResponse.requestId;
-    const consentStatus = await client.m3.getConsentRequestStatus(
-      requestId,
-      authToken
-    );
-    console.log('Consent Status:', consentStatus.consentRequest.status);
-    if (consentStatus.consentRequest.consentArtefacts) {
-      console.log('Consent Artefacts:', consentStatus.consentRequest.consentArtefacts.length);
+    const serviceResponse = await client.m3.registerBridgeService(serviceData, authToken);
+    if (!serviceResponse?.id) {
+      throw new Error('Failed to register bridge service.');
     }
-    console.log('---');
+    console.log('✅ Service registered successfully!');
+    console.log(`Service ID: ${serviceResponse.id}`);
+    console.log(`Service Name: ${serviceResponse.name}\n`);
 
-    // 7. Request Health Information
-    console.log('7. Requesting health information...');
-    const healthInfoRequest = {
-      requestId: 'health_req_' + Date.now(),
-      timestamp: new Date().toISOString(),
-      hiRequest: {
-        consentId: consentStatus.consentRequest.consentArtefacts?.[0]?.id || 'consent_123',
-        dateRange: {
-          from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-          to: new Date().toISOString(),
-        },
-        dataPushUrl: 'https://your-service.com/api/health-data',
-        keyMaterial: {
-          cryptoAlg: 'ECDH',
-          curve: 'Curve25519',
-          dhPublicKey: {
-            expiry: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            keyValue: 'base64-encoded-public-key',
-            parameters: 'Curve25519/32byte random key',
-          },
-          nonce: 'base64-encoded-nonce',
-        },
-      },
-    };
+    console.log('----------------------------------------------------');
+    console.log('NOTE: The core M3 (HIU) workflow is interactive and asynchronous.');
+    console.log('It involves initiating a consent request, waiting for user approval');
+    console.log('via a callback to your server, and then fetching health information.');
+    console.log('This cannot be demonstrated in a simple, non-interactive script.');
+    console.log('----------------------------------------------------\n');
 
-    const healthInfoResponse = await client.m3.requestHealthInformation(
-      healthInfoRequest,
-      authToken
-    );
-    console.log('✅ Health information requested');
-    console.log('Request ID:', healthInfoResponse.requestId);
-    console.log('---');
-
-    console.log('🎉 M3 Service Examples Completed Successfully!');
-  } catch (error: any) {
-    console.error('❌ Error in M3 Example:', error.message);
-    if (error.response?.data) {
-      console.error('Error details:', error.response.data);
+    console.log('\n=== M3 Service Setup Example Completed Successfully ===');
+  } catch (error) {
+    console.error('❌ Error in M3 Setup Example:');
+    if (axios.isAxiosError(error)) {
+      console.error('Status:', error.response?.status);
+      console.error('Data:', error.response?.data);
+    } else if (error instanceof Error) {
+      console.error('Error:', error.message);
+    } else {
+      console.error('An unknown error occurred:', error);
     }
     process.exit(1);
   }
 }
 
-// Run the examples
-runM3Examples();
+// Run the M3 setup example
+runM3SetupExample();

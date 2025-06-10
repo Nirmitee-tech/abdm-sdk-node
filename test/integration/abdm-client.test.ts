@@ -38,7 +38,6 @@ const mockAxiosInstance = createMockAxiosInstance();
 mockedAxios.create.mockReturnValue(mockAxiosInstance as unknown as AxiosInstance);
 
 describe('ABDMClient Integration', () => {
-  let client: ABDMClient;
   const config = {
     clientId: 'test-client',
     clientSecret: 'test-secret',
@@ -47,10 +46,8 @@ describe('ABDMClient Integration', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
     // Reset the mock instance
     Object.assign(mockAxiosInstance, createMockAxiosInstance());
-    
     // Setup default mock implementations
     mockAxiosInstance.request.mockImplementation(async (config) => ({
       data: { success: true },
@@ -59,12 +56,11 @@ describe('ABDMClient Integration', () => {
       headers: {},
       config,
     }));
-    
-    client = new ABDMClient(config);
   });
 
   describe('Initialization', () => {
     it('should initialize with provided configuration', () => {
+      const client = new ABDMClient(config);
       expect(client).toBeInstanceOf(ABDMClient);
       // @ts-ignore - Accessing private property for testing
       expect(client.m1).toBeDefined();
@@ -98,16 +94,16 @@ describe('ABDMClient Integration', () => {
     });
 
     it('should authenticate and set auth token', async () => {
+      const client = new ABDMClient(config);
       await client.authenticate();
       expect(axios.post).toHaveBeenCalledWith(
         'https://dev.abdm.gov.in/gateway/v0.5/sessions',
-        {
-          clientId: config.clientId,
-          clientSecret: config.clientSecret,
-        },
+        {},
         {
           headers: {
+            'Authorization': 'Basic dGVzdC1jbGllbnQ6dGVzdC1zZWNyZXQ=',
             'Content-Type': 'application/json',
+            'X-CM-ID': 'sbx',
           },
         }
       );
@@ -116,6 +112,7 @@ describe('ABDMClient Integration', () => {
     });
 
     it('should handle authentication failure', async () => {
+      const client = new ABDMClient(config);
       const error = new Error('Network Error');
       mockedAxios.post.mockRejectedValueOnce(error);
 
@@ -127,58 +124,50 @@ describe('ABDMClient Integration', () => {
 
   describe('Token Management', () => {
     it('should set and clear auth token', () => {
+      jest.useFakeTimers();
       // Set a token with a future expiry
       const token = 'test-token';
-      const expiresIn = 3600; // 1 hour
-      
+      const expiresIn = 3600 * 24; // 24 hours
       // Create a fixed date for testing
       const now = new Date('2023-01-01T00:00:00Z');
-      const futureDate = new Date(now.getTime() + (expiresIn - 300) * 1000);
-      
-      // Mock Date.now to return our fixed timestamp
-      jest.spyOn(global.Date, 'now').mockImplementation(() => now.getTime());
-      
+      jest.setSystemTime(now);
       try {
+        const client = new ABDMClient({
+          clientId: 'test-client',
+          clientSecret: 'test-secret',
+          xcmId: 'sbx',
+        });
         // Set auth token with expiry
         client.setAuthToken(token, expiresIn);
-        
         // Verify token is set
         expect(client.getAuthToken()).toBe(token);
-        
-        // Mock Date.now and Date.prototype.getTime to return a time before expiry
-        jest.spyOn(global.Date, 'now').mockImplementation(() => now.getTime() + 1000);
-        const originalGetTime = Date.prototype.getTime;
-      jest.spyOn(Date.prototype, 'getTime').mockImplementation(function (this: Date) {
-        if (typeof this.toISOString === 'function' && this.toISOString() === now.toISOString()) {
-          return now.getTime() + 1000;
-        }
-        return originalGetTime.apply(this);
-      });
-        
-        // Verify token is valid (not expired)
+        // Check just before the 5-minute buffer (should be valid)
+        jest.setSystemTime(new Date(now.getTime() + (expiresIn * 1000) - (300 * 1000) - 1));
         expect(client.isTokenValid()).toBe(true);
-
-        // Mock Date.now to return a time after expiry
-        jest.spyOn(global.Date, 'now').mockImplementation(() => futureDate.getTime() + 1000);
-        
-        // Verify token is now expired
+        // Check at the 5-minute buffer (should be invalid)
+        jest.setSystemTime(new Date(now.getTime() + (expiresIn * 1000) - (300 * 1000)));
         expect(client.isTokenValid()).toBe(false);
-        
+        // Check after expiry (should be invalid)
+        jest.setSystemTime(new Date(now.getTime() + (expiresIn * 1000) + 1000));
+        expect(client.isTokenValid()).toBe(false);
         // Clear the token
         client.clearAuthToken();
-        
-        // Verify token is cleared
         expect(client.getAuthToken()).toBeNull();
         expect(client.isTokenValid()).toBe(false);
       } finally {
-        // Restore original Date.now
-        jest.restoreAllMocks();
+        jest.useRealTimers();
       }
     });
   });
 
   describe('Service Integration', () => {
+    let client: ABDMClient;
     beforeEach(() => {
+      client = new ABDMClient({
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
+        xcmId: 'sbx',
+      });
       // Mock a successful authentication
       client.setAuthToken('test-token');
     });

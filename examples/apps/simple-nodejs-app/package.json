@@ -12,7 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@nirmitee/abdm-sdk-node": "github:Nirmitee-tech/abdm-sdk-node",
+    "@nirmitee/abdm-sdk-node": "file:../../../",
     "axios": "^1.9.0",
     "dotenv": "^16.5.0"
   }
