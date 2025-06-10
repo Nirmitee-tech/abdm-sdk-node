@@ -33,6 +33,7 @@ export interface AadhaarSendOTPRequest {
   loginHint: 'aadhaar' | 'mobile'; // Specifies the type of loginId
   loginId: string; // Encrypted Aadhaar number or mobile number
   otpSystem: 'aadhaar' | 'adhaar'; // System to generate OTP from, confirm exact value from spec (e.g. 'aadhaar')
+  txnId?: string; // Transaction ID for tracking the OTP request
 }
 
 export interface AadhaarSendOTPResponse {

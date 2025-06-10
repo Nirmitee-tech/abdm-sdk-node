@@ -87,11 +87,11 @@ export class HttpClient {
         // For Axios interceptors, the config param is InternalAxiosRequestConfig.
         const internalConfig = axiosConfig as import('axios').InternalAxiosRequestConfig;
 
-        // Skip auth for auth requests to avoid infinite loops or when skipAuth is true
+        // Skip auth for auth requests to avoid infinite loops
+        // Skip auth for auth requests to avoid infinite loops
+        // The auth URL is typically <basePath>/v0.5/sessions
         const authPathSegment = '/v0.5/sessions';
-        const skipAuth = (internalConfig as any).skipAuth === true;
-        
-        if (internalConfig.url?.endsWith(authPathSegment) || skipAuth) {
+        if (internalConfig.url?.endsWith(authPathSegment)) {
           return internalConfig;
         }
 
@@ -165,28 +165,59 @@ export class HttpClient {
   public async authenticate(): Promise<void> {
     try {
       const authUrl = `${this.config.basePath}/v0.5/sessions`;
+      
+      // Create Basic Auth header
+      const authString = Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString('base64');
+      
       const response = await axios.post(
         authUrl,
-        {
-          clientId: this.config.clientId,
-          clientSecret: this.config.clientSecret,
-        },
+        {}, // Empty body as per ABDM API
         {
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Basic ${authString}`,
+            'X-CM-ID': this.config.xcmId || 'sbx', // Default to 'sbx' for sandbox
           },
         }
       );
 
       const { accessToken, expiresIn } = response.data;
+      if (!accessToken) {
+        throw new Error('No access token received in response');
+      }
+      
       this._authToken = accessToken;
       // Set expiry to 5 minutes before the actual expiry to be safe
       this._tokenExpiry = new Date(Date.now() + (expiresIn - 300) * 1000);
-    } catch (error) {
-      console.error('Authentication failed:', error);
-      throw new Error('Failed to authenticate with ABDM');
+      
+      console.log('Successfully authenticated with ABDM. Token expires at:', this._tokenExpiry);
+    } catch (error: any) {
+      const errorInfo: any = {
+        message: error.message || 'Unknown error',
+      };
+
+      // Check if it's an Axios error
+      if (error.isAxiosError) {
+        errorInfo.status = error.response?.status;
+        errorInfo.statusText = error.response?.statusText;
+        errorInfo.data = error.response?.data;
+        
+        errorInfo.config = {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: {
+            ...(error.config?.headers || {}),
+            Authorization: error.config?.headers?.Authorization ? '***REDACTED***' : undefined,
+          },
+        };
+      }
+      
+      console.error('Authentication failed:', errorInfo);
+      throw new Error(`Failed to authenticate with ABDM: ${errorInfo.message}`);
     }
   }
+
+
 
   /**
    * Make a GET request
@@ -246,38 +277,50 @@ export class HttpClient {
       return this._publicKey;
     }
 
-    const absolutePublicKeyUrl =
-      'https://abhasbx.abdm.gov.in/abha/api/v3/profile/public/certificate';
-
     try {
-      // Generate timestamp in the required format: YYYY-MM-DDTHH:mm:ss.SSS[Z]
-      const timestamp = new Date().toISOString();
-      
-      // Add required headers for ABDM API
-      const headers = {
-        'X-Timestamp': timestamp,
-        'X-CM-ID': 'sbx_mstr' // Default sandbox CM ID, can be configured
-      };
-      
-      // Make the request with the required headers
-      const response = await this.get<{ publicKey: string }>(absolutePublicKeyUrl, {
-        headers,
-        skipAuth: true // Skip auth for public key fetch
-      });
-      if (response.success && response.data?.publicKey) {
-        this._publicKey = response.data.publicKey; // Assuming the response structure is { publicKey: "..." }
-        return this._publicKey!;
-      } else {
-        console.error('Failed to fetch public key:', response.error);
-        const errorMessage =
-          typeof response.error === 'string' ? response.error : response.error?.message;
-        throw new Error(
-          `Failed to fetch public key. Status: ${response.status}, Error: ${errorMessage}`
-        );
+      // First, ensure we have a valid auth token
+      if (!this._authToken) {
+        await this.authenticate();
       }
-    } catch (error) {
-      console.error('Error fetching public key:', error);
-      throw new Error('Error fetching public key.');
+
+      // The public key endpoint path - this should be relative to the base URL
+      const publicKeyPath = '/api/v3/profile/public/certificate';
+      const baseUrl = this.config.baseUrl || this.config.basePath;
+      
+      if (!baseUrl) {
+        throw new Error('No base URL configured for fetching public key');
+      }
+      
+      // Log the public key request for debugging
+      if (this.config.debug) {
+        console.log('Fetching public key from:', `${baseUrl}${publicKeyPath}`);
+      }
+      
+      // Make the request to get the public key
+      const response = await this.client.get<{ publicKey: string }>(publicKeyPath, {
+        baseURL: baseUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CM-ID': this.config.xcmId || 'sbx',
+        },
+      });
+
+      if (!response.data?.publicKey) {
+        throw new Error('No public key found in response');
+      }
+      
+      this._publicKey = response.data.publicKey;
+      return this._publicKey;
+    } catch (error: any) {
+      console.error('Error fetching public key:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+      });
+      
+      throw new Error(`Failed to fetch public key: ${error.message}`);
     }
   }
 
@@ -298,7 +341,7 @@ export class HttpClient {
         buffer
       );
       return encrypted.toString('base64');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Encryption failed:', error);
       throw new Error('Failed to encrypt data with public key.');
     }
@@ -315,7 +358,7 @@ export class HttpClient {
   ): Promise<APIResponse<T>> {
     try {
       // Create the request config with our custom type
-      const config: CustomAxiosRequestConfig & { skipAuth?: boolean } = {
+      const config: CustomAxiosRequestConfig = {
         method,
         url,
         data,
@@ -326,8 +369,6 @@ export class HttpClient {
           Accept: 'application/json',
           ...(options.headers || {}),
         },
-        // Pass through skipAuth option to the interceptor
-        skipAuth: options.skipAuth,
       };
 
       // If authToken is provided, add it to the config for the interceptor to handle

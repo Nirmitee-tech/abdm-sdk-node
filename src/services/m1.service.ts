@@ -51,15 +51,31 @@ export class M1Service {
    * ABHA Enrolment: Send OTP for Aadhaar verification
    * Endpoint: https://abhasbx.abdm.gov.in/abha/api/v3/enrollment/request/otp
    */
-  async sendAadhaarOTP(unencryptedAadhaar: string): Promise<APIResponse<AadhaarSendOTPResponse>> {
-    const encryptedAadhaar = await this.http.encryptWithPublicKey(unencryptedAadhaar);
+  async sendAadhaarOTP(
+    params: {
+      aadhaar: string;
+      purpose: string;
+      txnId: string;
+    }
+  ): Promise<APIResponse<AadhaarSendOTPResponse>> {
+    const { aadhaar, purpose, txnId } = params;
+    
+    console.log('Encrypting Aadhaar number...');
+    const encryptedAadhaar = await this.http.encryptWithPublicKey(aadhaar);
+    
+    console.log('Sending OTP request to ABDM...');
     const requestBody: AadhaarSendOTPRequest = {
-      scope: ['abha-enrol'],
+      scope: [purpose || 'abha-enrol'],
       loginHint: 'aadhaar',
       loginId: encryptedAadhaar,
       otpSystem: 'aadhaar',
+      txnId: txnId,
     };
-    const apiEndpoint = 'https://abhasbx.abdm.gov.in/abha/api/v3/enrollment/request/otp';
+    
+    // Use the base URL from the HTTP client configuration
+    const apiEndpoint = '/api/v3/enrollment/request/otp';
+    
+    console.log('Sending request to:', apiEndpoint);
     return this.http.post<AadhaarSendOTPResponse>(apiEndpoint, requestBody);
   }
 
