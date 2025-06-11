@@ -76,14 +76,10 @@ yarn-error.log*
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 
 # Gatsby files
 .cache/
 public
-
-# vuepress build output
-.vuepress/dist
 
 # Serverless directories
 .serverless/

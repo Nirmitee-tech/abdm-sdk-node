@@ -1,0 +1,14 @@
+import type { APIResponse } from '../types/common';
+import type { SessionRequest, SessionResponse, GenerateOtpRequest, GenerateOtpResponse, CreateAbhaRequest, CreateAbhaResponse } from '../types/m1';
+import type { HttpClient } from '../utils/http-client';
+export declare class M1Service {
+    private readonly httpClient;
+    constructor(httpClient: HttpClient);
+    getSession(sessionRequest: SessionRequest): Promise<APIResponse<SessionResponse>>;
+    sendAadhaarOTP(generateOtpRequest: GenerateOtpRequest): Promise<APIResponse<GenerateOtpResponse>>;
+    createAbhaIdByAadhaar(createAbhaRequest: CreateAbhaRequest): Promise<APIResponse<CreateAbhaResponse>>;
+    getPublicKey(): Promise<APIResponse<{
+        key: string;
+    }>>;
+}
+//# sourceMappingURL=m1.service.d.ts.map
