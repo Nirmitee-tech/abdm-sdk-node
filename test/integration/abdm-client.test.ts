@@ -1,4 +1,6 @@
-import axios, { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
+
 import { ABDMClient } from '../../src/abdm-client';
 import { HttpClient } from '../../src/utils/http-client';
 
@@ -84,9 +86,9 @@ describe('ABDMClient Integration', () => {
         accessToken: 'test-access-token',
         expiresIn: 3600,
         refreshToken: 'test-refresh-token',
-        tokenType: 'Bearer'
+        tokenType: 'Bearer',
       },
-      status: 200
+      status: 200,
     };
 
     beforeEach(() => {
@@ -101,7 +103,7 @@ describe('ABDMClient Integration', () => {
         {},
         {
           headers: {
-            'Authorization': 'Basic dGVzdC1jbGllbnQ6dGVzdC1zZWNyZXQ=',
+            Authorization: 'Basic dGVzdC1jbGllbnQ6dGVzdC1zZWNyZXQ=',
             'Content-Type': 'application/json',
             'X-CM-ID': 'sbx',
           },
@@ -142,13 +144,13 @@ describe('ABDMClient Integration', () => {
         // Verify token is set
         expect(client.getAuthToken()).toBe(token);
         // Check just before the 5-minute buffer (should be valid)
-        jest.setSystemTime(new Date(now.getTime() + (expiresIn * 1000) - (300 * 1000) - 1));
+        jest.setSystemTime(new Date(now.getTime() + expiresIn * 1000 - 300 * 1000 - 1));
         expect(client.isTokenValid()).toBe(true);
         // Check at the 5-minute buffer (should be invalid)
-        jest.setSystemTime(new Date(now.getTime() + (expiresIn * 1000) - (300 * 1000)));
+        jest.setSystemTime(new Date(now.getTime() + expiresIn * 1000 - 300 * 1000));
         expect(client.isTokenValid()).toBe(false);
         // Check after expiry (should be invalid)
-        jest.setSystemTime(new Date(now.getTime() + (expiresIn * 1000) + 1000));
+        jest.setSystemTime(new Date(now.getTime() + expiresIn * 1000 + 1000));
         expect(client.isTokenValid()).toBe(false);
         // Clear the token
         client.clearAuthToken();
@@ -181,7 +183,7 @@ describe('ABDMClient Integration', () => {
         data: mockResponse,
         statusCode: 200,
       });
-      
+
       // @ts-ignore - Accessing private property for testing
       client.m1.sendAadhaarOTP = mockImplementation;
 
@@ -201,16 +203,16 @@ describe('ABDMClient Integration', () => {
       const request = {
         abhaAddress: 'user@abdm',
         linkToken: 'test-link-token',
-        response: { requestId: 'req-123' }
+        response: { requestId: 'req-123' },
       };
-      
+
       // @ts-ignore - Accessing private property for testing
       const mockImplementation = jest.fn().mockResolvedValue({
         success: true,
         data: mockResponse,
         statusCode: 200,
       });
-      
+
       // @ts-ignore - Accessing private property for testing
       client.m2.generateToken = mockImplementation;
 

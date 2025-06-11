@@ -1,12 +1,7 @@
 import { M2Service } from '../src/services/m2.service';
+import type { HealthFacilityRequest, GenerateTokenRequest, ConsentRequest, FetchRecordsOptions } from '../src/types';
+import { HealthRecord } from '../src/types';
 import { HttpClient } from '../src/utils/http-client';
-import { 
-  HealthFacilityRequest, 
-  GenerateTokenRequest,
-  ConsentRequest,
-  HealthRecord,
-  FetchRecordsOptions
-} from '../src/types';
 
 // Mock the HttpClient
 jest.mock('../src/utils/http-client');
@@ -29,9 +24,9 @@ describe('M2Service', () => {
             bridgeId: 'bridge-123',
             hipName: 'Test HIP',
             type: 'HIP',
-            active: true
-          }
-        ]
+            active: true,
+          },
+        ],
       };
 
       const mockResponse = {
@@ -42,9 +37,9 @@ describe('M2Service', () => {
             bridgeId: 'bridge-123',
             hipName: 'Test HIP',
             type: 'HIP',
-            active: true
-          }
-        ]
+            active: true,
+          },
+        ],
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
@@ -55,10 +50,7 @@ describe('M2Service', () => {
 
       const result = await m2Service.addUpdateHealthFacilityServices(mockRequest);
 
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v1/bridges/MutipleHRPAddUpdateServices',
-        mockRequest
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v1/bridges/MutipleHRPAddUpdateServices', mockRequest);
       expect(result).toEqual(mockResponse);
     });
 
@@ -66,21 +58,21 @@ describe('M2Service', () => {
       const mockRequest: HealthFacilityRequest = {
         facilityId: 'facility-123',
         facilityName: 'Test Health Facility',
-        HRP: []
+        HRP: [],
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
         success: false,
         error: {
           code: 500,
-          message: 'Internal Server Error'
+          message: 'Internal Server Error',
         },
         statusCode: 500,
       });
 
-      await expect(m2Service.addUpdateHealthFacilityServices(mockRequest))
-        .rejects
-        .toThrow('Failed to update health facility services');
+      await expect(m2Service.addUpdateHealthFacilityServices(mockRequest)).rejects.toThrow(
+        'Failed to update health facility services'
+      );
     });
   });
 
@@ -88,7 +80,7 @@ describe('M2Service', () => {
     it('should generate a token', async () => {
       const mockRequest: GenerateTokenRequest = {
         abhaAddress: 'user@abdm',
-        linkToken: 'test-link-token'
+        linkToken: 'test-link-token',
         // 'response' field removed as it's not part of GenerateTokenRequest
       };
 
@@ -96,7 +88,7 @@ describe('M2Service', () => {
         token: 'test-token',
         expiresIn: 3600,
         refreshToken: 'test-refresh-token',
-        refreshExpiresIn: 86400
+        refreshExpiresIn: 86400,
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
@@ -107,17 +99,14 @@ describe('M2Service', () => {
 
       const result = await m2Service.generateToken(mockRequest);
 
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v1/hip/token/generate-token',
-        mockRequest
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v1/hip/token/generate-token', mockRequest);
       expect(result).toEqual(mockResponse);
     });
 
     it('should throw an error when token generation fails', async () => {
       const mockRequest: GenerateTokenRequest = {
         abhaAddress: 'user@abdm',
-        linkToken: 'test-link-token'
+        linkToken: 'test-link-token',
         // 'response' field removed as it's not part of GenerateTokenRequest
       };
 
@@ -125,14 +114,12 @@ describe('M2Service', () => {
         success: false,
         error: {
           code: 401,
-          message: 'Unauthorized'
+          message: 'Unauthorized',
         },
         statusCode: 401,
       });
 
-      await expect(m2Service.generateToken(mockRequest))
-        .rejects
-        .toThrow('Failed to generate token');
+      await expect(m2Service.generateToken(mockRequest)).rejects.toThrow('Failed to generate token');
     });
   });
 
@@ -158,7 +145,7 @@ describe('M2Service', () => {
         profilePhoto: 'base64encodedphoto',
         kycStatus: 'VERIFIED',
         kycVerifiedDate: '2023-01-01T00:00:00Z',
-        createdDate: '2023-01-01T00:00:00Z'
+        createdDate: '2023-01-01T00:00:00Z',
       };
 
       mockHttpClient.get.mockResolvedValueOnce({
@@ -169,14 +156,11 @@ describe('M2Service', () => {
 
       const result = await m2Service.getABHAProfile(mockToken);
 
-      expect(mockHttpClient.get).toHaveBeenCalledWith(
-        '/v1/profile/me',
-        {
-          headers: {
-            Authorization: 'Bearer test-token'
-          }
-        }
-      );
+      expect(mockHttpClient.get).toHaveBeenCalledWith('/v1/profile/me', {
+        headers: {
+          Authorization: 'Bearer test-token',
+        },
+      });
       expect(result).toEqual(mockProfile);
       expect(mockHttpClient.get).toHaveBeenCalledTimes(1);
     });
@@ -188,14 +172,12 @@ describe('M2Service', () => {
         success: false,
         error: {
           code: 401,
-          message: 'Unauthorized'
+          message: 'Unauthorized',
         },
         statusCode: 401,
       });
 
-      await expect(m2Service.getABHAProfile(mockToken))
-        .rejects
-        .toThrow('Failed to get ABHA profile');
+      await expect(m2Service.getABHAProfile(mockToken)).rejects.toThrow('Failed to get ABHA profile');
     });
   });
 
@@ -212,9 +194,7 @@ describe('M2Service', () => {
 
       const result = await m2Service.verifyABHAAddress(mockAbhaAddress);
 
-      expect(mockHttpClient.get).toHaveBeenCalledWith(
-        '/v1/abha/address/verify?abhaAddress=user%40abdm'
-      );
+      expect(mockHttpClient.get).toHaveBeenCalledWith('/v1/abha/address/verify?abhaAddress=user%40abdm');
       expect(result).toEqual(mockResponse);
     });
 
@@ -225,14 +205,12 @@ describe('M2Service', () => {
         success: false,
         error: {
           code: 400,
-          message: 'Invalid ABHA address'
+          message: 'Invalid ABHA address',
         },
         statusCode: 400,
       });
 
-      await expect(m2Service.verifyABHAAddress(mockAbhaAddress))
-        .rejects
-        .toThrow('Failed to verify ABHA address');
+      await expect(m2Service.verifyABHAAddress(mockAbhaAddress)).rejects.toThrow('Failed to verify ABHA address');
     });
   });
 
@@ -249,19 +227,15 @@ describe('M2Service', () => {
         statusCode: 200,
       });
 
-      const result = await m2Service.linkABHAAddress(
-        mockAbhaNumber,
-        mockAbhaAddress,
-        mockToken
-      );
+      const result = await m2Service.linkABHAAddress(mockAbhaNumber, mockAbhaAddress, mockToken);
 
       expect(mockHttpClient.post).toHaveBeenCalledWith(
         '/v1/abha/address/link',
         { abhaNumber: mockAbhaNumber, abhaAddress: mockAbhaAddress },
         {
           headers: {
-            Authorization: 'Bearer test-token'
-          }
+            Authorization: 'Bearer test-token',
+          },
         }
       );
       expect(result).toEqual(mockResponse);
@@ -276,14 +250,14 @@ describe('M2Service', () => {
         success: false,
         error: {
           code: 400,
-          message: 'Invalid token'
+          message: 'Invalid token',
         },
         statusCode: 400,
       });
 
-      await expect(
-        m2Service.linkABHAAddress(mockAbhaNumber, mockAbhaAddress, mockToken)
-      ).rejects.toThrow('Failed to link ABHA address');
+      await expect(m2Service.linkABHAAddress(mockAbhaNumber, mockAbhaAddress, mockToken)).rejects.toThrow(
+        'Failed to link ABHA address'
+      );
     });
   });
 
@@ -291,14 +265,13 @@ describe('M2Service', () => {
   // Health Facility Management Tests
   // ======================
 
-
   describe('getHealthFacility', () => {
     it('should get health facility details', async () => {
       const facilityId = 'facility-123';
       const mockResponse = {
         facilityId,
         facilityName: 'Test Facility',
-        HRP: []
+        HRP: [],
       };
 
       mockHttpClient.get.mockResolvedValueOnce({
@@ -309,9 +282,7 @@ describe('M2Service', () => {
 
       const result = await m2Service.getHealthFacility(facilityId);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.get).toHaveBeenCalledWith(
-        `/v1/facilities/${facilityId}`
-      );
+      expect(mockHttpClient.get).toHaveBeenCalledWith(`/v1/facilities/${facilityId}`);
     });
 
     it('should throw error when failed to get facility', async () => {
@@ -321,9 +292,7 @@ describe('M2Service', () => {
         statusCode: 404,
       });
 
-      await expect(m2Service.getHealthFacility('invalid-id')).rejects.toThrow(
-        'Failed to get health facility'
-      );
+      await expect(m2Service.getHealthFacility('invalid-id')).rejects.toThrow('Failed to get health facility');
     });
   });
 
@@ -359,17 +328,13 @@ describe('M2Service', () => {
 
       const result = await m2Service.updateHealthFacilityStatus(facilityId, active);
       expect(result).toEqual({ success: true });
-      expect(mockHttpClient.put).toHaveBeenCalledWith(
-        `/v1/facilities/${facilityId}/status`,
-        { active }
-      );
+      expect(mockHttpClient.put).toHaveBeenCalledWith(`/v1/facilities/${facilityId}/status`, { active });
     });
   });
 
   // ======================
   // ABHA Profile Management Tests
   // ======================
-
 
   describe('updateABHAProfile', () => {
     it('should update ABHA profile', async () => {
@@ -385,15 +350,11 @@ describe('M2Service', () => {
 
       const result = await m2Service.updateABHAProfile(profileData, token);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.put).toHaveBeenCalledWith(
-        '/v1/profile/me',
-        profileData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      expect(mockHttpClient.put).toHaveBeenCalledWith('/v1/profile/me', profileData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
     });
   });
 
@@ -414,21 +375,17 @@ describe('M2Service', () => {
 
       const result = await m2Service.searchABHAProfiles(query, token);
       expect(result).toEqual(mockProfiles);
-      expect(mockHttpClient.get).toHaveBeenCalledWith(
-        `/v1/profiles/search?q=${encodeURIComponent(query)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      expect(mockHttpClient.get).toHaveBeenCalledWith(`/v1/profiles/search?q=${encodeURIComponent(query)}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
     });
   });
 
   // ======================
   // ABHA Address Management Tests
   // ======================
-
 
   describe('unlinkABHAAddress', () => {
     it('should unlink ABHA address', async () => {
@@ -443,21 +400,17 @@ describe('M2Service', () => {
 
       const result = await m2Service.unlinkABHAAddress(address, token);
       expect(result).toEqual({ success: true });
-      expect(mockHttpClient.delete).toHaveBeenCalledWith(
-        `/v1/abha/address/${encodeURIComponent(address)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      expect(mockHttpClient.delete).toHaveBeenCalledWith(`/v1/abha/address/${encodeURIComponent(address)}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
     });
   });
 
   // ======================
   // Token Management Tests
   // ======================
-
 
   describe('refreshToken', () => {
     it('should refresh access token', async () => {
@@ -466,7 +419,7 @@ describe('M2Service', () => {
         token: 'new-access-token',
         expiresIn: 3600,
         refreshToken: 'new-refresh-token',
-        refreshExpiresIn: 2592000
+        refreshExpiresIn: 2592000,
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
@@ -477,17 +430,13 @@ describe('M2Service', () => {
 
       const result = await m2Service.refreshToken(refreshToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v1/token/refresh',
-        { refreshToken }
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v1/token/refresh', { refreshToken });
     });
   });
 
   // ======================
   // Consent Management Tests
   // ======================
-
 
   describe('createConsent', () => {
     it('should create a new consent', async () => {
@@ -539,23 +488,18 @@ describe('M2Service', () => {
 
       const result = await m2Service.createConsent(consentData, token);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v0.5/consent-requests',
-        consentData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/consent-requests', consentData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
     });
   });
 
   // ======================
   // Health Records Tests
   // ======================
-
 
   describe('fetchHealthRecords', () => {
     it('should fetch health records with options', async () => {
@@ -587,17 +531,14 @@ describe('M2Service', () => {
 
       const result = await m2Service.fetchHealthRecords(patientId, token, options);
       expect(result).toEqual(mockResponse);
-      
+
       // Verify the URL contains the expected base and parameters
-      expect(mockHttpClient.get).toHaveBeenCalledWith(
-        expect.stringContaining('/v1/patients/patient-123/records'),
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      
+      expect(mockHttpClient.get).toHaveBeenCalledWith(expect.stringContaining('/v1/patients/patient-123/records'), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       // Verify the URL contains all expected parameters
       const calledUrl = mockHttpClient.get.mock.calls[0][0];
       const url = new URL(`http://test${calledUrl}`);
@@ -613,7 +554,6 @@ describe('M2Service', () => {
   // Authentication Tests
   // ======================
 
-
   describe('initiateAuth', () => {
     it('should initiate authentication', async () => {
       const abhaAddress = 'user@abdm';
@@ -627,10 +567,7 @@ describe('M2Service', () => {
 
       const result = await m2Service.initiateAuth(abhaAddress);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v1/auth/initiate',
-        { abhaAddress }
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v1/auth/initiate', { abhaAddress });
     });
   });
 });

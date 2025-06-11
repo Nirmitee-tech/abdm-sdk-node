@@ -1,27 +1,56 @@
 {
   "compilerOptions": {
-    "target": "es2019",
+    /* Basic Options */
+    "target": "es2020",
     "module": "commonjs",
+    "lib": ["es2020"],
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+
+    /* Strict Type-Checking */
     "strict": true,
-    "declaration": true,
-    "sourceMap": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Module Resolution */
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
-    "resolveJsonModule": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+
+    /* Emit */
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+
+    /* Additional Checks */
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "importHelpers": true
   },
   "include": ["src/**/*.ts"],
   "exclude": [
     "node_modules",
-    "**/__tests__",
+    "dist",
+    "**/__tests__/**/*",
     "**/*.test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "**/*.e2e-test.ts"
   ]
 }

@@ -1,4 +1,3 @@
-import { HttpClient } from '../utils/http-client';
 import type {
   M3SessionRequest,
   M3SessionResponse,
@@ -9,8 +8,8 @@ import type {
   ConsentStatusResponse,
   HealthInformationRequest,
   HealthInformationResponse,
-  HealthInformationNotification,
 } from '../types/m3';
+import type { HttpClient } from '../utils/http-client';
 
 /**
  * Service class for ABDM Milestone 3 APIs
@@ -49,7 +48,7 @@ export class M3Service {
 
     const response = await this.http.post<M3SessionResponse>(`${this.basePath}/sessions`, data);
 
-    if (!response.success || !response.data) {
+    if (response.status >= 400 || !response.data) {
       throw new Error('Failed to create session');
     }
 
@@ -67,18 +66,14 @@ export class M3Service {
    * @param authToken - Authentication token
    * @returns Promise with success status
    */
-  async updateBridgeUrl(
-    bridgeId: string,
-    url: string,
-    authToken: string
-  ): Promise<{ success: boolean }> {
+  async updateBridgeUrl(bridgeId: string, url: string, authToken: string): Promise<{ success: boolean }> {
     const response = await this.http.patch<{ success: boolean }>(
       `${this.basePath}/bridges/${bridgeId}`,
       { url },
-      { authToken }
+      { headers: { Authorization: `Bearer ${authToken}` } }
     );
 
-    if (!response.success || !response.data) {
+    if (response.status >= 400 || !response.data) {
       throw new Error('Failed to update bridge URL');
     }
 
@@ -95,13 +90,11 @@ export class M3Service {
     service: BridgeServiceRegistrationRequest,
     authToken: string
   ): Promise<BridgeServiceResponse> {
-    const response = await this.http.post<BridgeServiceResponse>(
-      `${this.basePath}/services`,
-      service,
-      { authToken }
-    );
+    const response = await this.http.post<BridgeServiceResponse>(`${this.basePath}/services`, service, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
 
-    if (!response.success || !response.data) {
+    if (response.status >= 400 || !response.data) {
       throw new Error('Failed to register bridge service');
     }
 
@@ -114,17 +107,13 @@ export class M3Service {
    * @param authToken - Authentication token
    * @returns Promise with service details
    */
-  async findBridgeServiceById(
-    serviceId: string,
-    authToken: string
-  ): Promise<BridgeServiceResponse> {
-    const response = await this.http.get<BridgeServiceResponse>(
-      `${this.basePath}/services/${serviceId}`,
-      { authToken }
-    );
+  async getBridgeService(serviceId: string, authToken: string): Promise<BridgeServiceResponse> {
+    const response = await this.http.get<BridgeServiceResponse>(`${this.basePath}/services/${serviceId}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
 
-    if (!response.success || !response.data) {
-      throw new Error('Service not found');
+    if (response.status >= 400 || !response.data) {
+      throw new Error('Failed to get bridge service');
     }
 
     return response.data;
@@ -136,16 +125,12 @@ export class M3Service {
    * @param authToken - Authentication token
    * @returns Promise with bridge and services details
    */
-  async findServicesByBridgeId(
-    bridgeId: string,
-    authToken: string
-  ): Promise<BridgeServicesResponse> {
-    const response = await this.http.get<BridgeServicesResponse>(
-      `${this.basePath}/bridges/${bridgeId}/services`,
-      { authToken }
-    );
+  async findServicesByBridgeId(bridgeId: string, authToken: string): Promise<BridgeServicesResponse> {
+    const response = await this.http.get<BridgeServicesResponse>(`${this.basePath}/bridges/${bridgeId}/services`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
 
-    if (!response.success || !response.data) {
+    if (response.status >= 400 || !response.data) {
       throw new Error('Bridge or services not found');
     }
 
@@ -162,18 +147,13 @@ export class M3Service {
    * @param authToken - Authentication token
    * @returns Promise with request ID
    */
-  async initConsentRequest(
-    consentRequest: M3ConsentRequest,
-    authToken: string
-  ): Promise<{ requestId: string }> {
-    const response = await this.http.post<{ requestId: string }>(
-      `${this.hiuBasePath}/init`,
-      consentRequest,
-      { authToken }
-    );
+  async requestConsent(consentRequest: M3ConsentRequest, authToken: string): Promise<{ requestId: string }> {
+    const response = await this.http.post<{ requestId: string }>(this.hiuBasePath, consentRequest, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
 
-    if (!response.success || !response.data) {
-      throw new Error('Failed to initialize consent request');
+    if (response.status >= 400 || !response.data) {
+      throw new Error('Failed to request consent');
     }
 
     return response.data;
@@ -185,17 +165,33 @@ export class M3Service {
    * @param authToken - Authentication token
    * @returns Promise with consent status
    */
-  async getConsentRequestStatus(
-    requestId: string,
-    authToken: string
-  ): Promise<ConsentStatusResponse> {
-    const response = await this.http.get<ConsentStatusResponse>(
-      `${this.hiuBasePath}/status/${requestId}`,
-      { authToken }
+  async getConsentStatus(consentRequestId: string, authToken: string): Promise<ConsentStatusResponse> {
+    const response = await this.http.get<ConsentStatusResponse>(`${this.hiuBasePath}/${consentRequestId}/status`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+
+    if (response.status >= 400 || !response.data) {
+      throw new Error('Failed to get consent status');
+    }
+
+    return response.data;
+  }
+
+  /**
+   * Revoke consent
+   * @param consentId - Consent ID
+   * @param authToken - Authentication token
+   * @returns Promise with success status
+   */
+  async revokeConsent(consentId: string, authToken: string): Promise<{ success: boolean }> {
+    const response = await this.http.post<{ success: boolean }>(
+      `${this.hiuBasePath}/${consentId}/revoke`,
+      {},
+      { headers: { Authorization: `Bearer ${authToken}` } }
     );
 
-    if (!response.success || !response.data) {
-      throw new Error('Failed to get consent request status');
+    if (response.status >= 400 || !response.data) {
+      throw new Error('Failed to revoke consent');
     }
 
     return response.data;
@@ -224,13 +220,11 @@ export class M3Service {
     },
     authToken: string
   ): Promise<{ success: boolean }> {
-    const response = await this.http.post<{ success: boolean }>(
-      `${this.hiuBasePath}/on-notify`,
-      notification,
-      { authToken }
-    );
+    const response = await this.http.post<{ success: boolean }>(`${this.hiuBasePath}/on-notify`, notification, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
 
-    if (!response.success || !response.data) {
+    if (response.status >= 400 || !response.data) {
       throw new Error('Failed to process consent notification');
     }
 
@@ -247,17 +241,12 @@ export class M3Service {
    * @param authToken - Authentication token
    * @returns Promise with request ID
    */
-  async requestHealthInformation(
-    request: HealthInformationRequest,
-    authToken: string
-  ): Promise<{ requestId: string }> {
-    const response = await this.http.post<{ requestId: string }>(
-      `${this.healthInfoBasePath}/request`,
-      request,
-      { authToken }
-    );
+  async requestHealthInformation(request: HealthInformationRequest, authToken: string): Promise<{ requestId: string }> {
+    const response = await this.http.post<{ requestId: string }>(this.healthInfoBasePath, request, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
 
-    if (!response.success || !response.data) {
+    if (response.status >= 400 || !response.data) {
       throw new Error('Failed to request health information');
     }
 
@@ -270,18 +259,20 @@ export class M3Service {
    * @param authToken - Authentication token
    * @returns Promise with success status
    */
-  async handleHealthInformationNotification(
-    notification: HealthInformationNotification,
-    authToken: string
+  async acknowledgeHealthInformation(
+    requestId: string,
+    status: 'OK' | 'ERROR',
+    authToken: string,
+    error?: { code: string; message: string }
   ): Promise<{ success: boolean }> {
     const response = await this.http.post<{ success: boolean }>(
-      `${this.healthInfoBasePath}/notify`,
-      notification,
-      { authToken }
+      `${this.healthInfoBasePath}/on-request`,
+      { requestId, status, ...(error && { error }) },
+      { headers: { Authorization: `Bearer ${authToken}` } }
     );
 
-    if (!response.success || !response.data) {
-      throw new Error('Failed to process health information notification');
+    if (response.status >= 400 || !response.data) {
+      throw new Error('Failed to acknowledge health information');
     }
 
     return response.data;
@@ -289,27 +280,18 @@ export class M3Service {
 
   /**
    * Fetch health information
-   * @param consentId - Consent ID
-   * @param token - Authentication token
+   * @param requestId - Request ID
+   * @param authToken - Authentication token
    * @returns Promise with health information
    */
-  async fetchHealthInformation(
-    consentId: string,
-    token: string
-  ): Promise<HealthInformationResponse> {
-    const response = await this.http.get<HealthInformationResponse>(
-      `${this.healthInfoBasePath}/fetch/${consentId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+  async getHealthInformation(requestId: string, authToken: string): Promise<HealthInformationResponse> {
+    const response = await this.http.get<HealthInformationResponse>(`${this.healthInfoBasePath}/fetch/${requestId}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
 
-    if (!response.success || !response.data) {
-      throw new Error(
-        `Failed to fetch health information: ${response.error?.message || 'Unknown error'}`
-      );
+    if (response.status >= 400 || !response.data) {
+      const errorMessage = (response as any).error?.message || 'Unknown error';
+      throw new Error(`Failed to fetch health information: ${errorMessage}`);
     }
 
     return response.data;

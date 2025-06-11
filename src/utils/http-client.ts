@@ -1,25 +1,25 @@
-import axios, {
-  type AxiosInstance,
-  type AxiosResponse,
-  type AxiosError,
-  type InternalAxiosRequestConfig,
-  type AxiosRequestHeaders,
-} from 'axios';
 import * as crypto from 'crypto';
+
+import type { AxiosError, AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
+
+import type { ABDMConfig, APIResponse } from '../types';
+
 import { logger } from './logger';
-import {
-  ABDMConfig,
-  APIResponse,
-  RequestOptions,
-  APIErrorDetails,
-} from '../types/common';
 
 // Define a custom request config that includes our authToken property
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   authToken?: string;
-  headers: AxiosRequestHeaders & {
-    [key: string]: string | number | boolean;
-  };
+  requestId?: string;
+  timestamp?: number;
+  retryCount?: number;
+}
+
+interface AuthTokenResponse {
+  accessToken: string;
+  expiresIn: number;
+  tokenType: string;
 }
 
 // Define a type for the expected structure of ABDM API error responses
@@ -27,11 +27,11 @@ interface AbdmErrorData {
   error?: {
     code?: string;
     message?: string;
-    details?: APIErrorDetails[];
+    details?: any[];
   };
   code?: string;
   message?: string;
-  details?: APIErrorDetails[];
+  details?: any[];
 }
 
 export class HttpClient {
@@ -40,84 +40,148 @@ export class HttpClient {
   private _authToken: string | null = null;
   private _tokenExpiry: Date | null = null;
   private _publicKey: string | null = null;
+  private _privateKey: string | null = null;
+  private _keyId: string | null = null;
 
-  public get publicKey(): string | null {
-    return this._publicKey;
-  }
-
-  public set publicKey(key: string | null) {
-    this._publicKey = key;
-  }
-
+  /**
+   * Get the current authentication token
+   */
   public get authToken(): string | null {
     return this._authToken;
   }
 
+  /**
+   * Set the authentication token
+   */
   public set authToken(token: string | null) {
     this._authToken = token;
   }
 
+  /**
+   * Get the token expiry time
+   */
   public get tokenExpiry(): Date | null {
     return this._tokenExpiry;
   }
 
+  /**
+   * Set the token expiry time
+   */
   public set tokenExpiry(expiry: Date | null) {
     this._tokenExpiry = expiry;
+  }
+
+  /**
+   * Get the current authentication token (legacy method)
+   */
+  public getAuthToken(): string | null {
+    return this.authToken;
+  }
+
+  /**
+   * Set the authentication token (legacy method)
+   */
+  public setAuthToken(token: string | null): void {
+    this.authToken = token;
+  }
+
+  /**
+   * Get the public key
+   */
+  public get publicKey(): string | null {
+    return this._publicKey;
+  }
+
+  /**
+   * Set the public key
+   */
+  public set publicKey(publicKey: string) {
+    this._publicKey = publicKey;
+  }
+
+  /**
+   * Get the private key
+   */
+  public get privateKey(): string | null {
+    return this._privateKey;
+  }
+
+  /**
+   * Set the private key
+   */
+  public set privateKey(privateKey: string) {
+    this._privateKey = privateKey;
+  }
+
+  /**
+   * Get the key ID
+   */
+  public get keyId(): string | null {
+    return this._keyId;
+  }
+
+  /**
+   * Set the key ID
+   */
+  public set keyId(keyId: string) {
+    this._keyId = keyId;
   }
 
   constructor(config: ABDMConfig) {
     this.config = {
       ...config,
-      basePath: config.basePath || 'https://dev.abdm.gov.in/gateway',
+      baseURL: config.baseURL || 'https://dev.abdm.gov.in/gateway',
       useSandbox: config.useSandbox !== false, // Default to true
       timeout: config.timeout || 30000,
     };
 
     this.client = axios.create({
+      baseURL: this.config.baseURL,
       timeout: this.config.timeout,
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...(config.headers || {}),
       },
     });
 
-    // Add a request interceptor to manage authentication tokens
+    // Add request interceptor for authentication
     this.client.interceptors.request.use(
-      async (axiosConfig: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> => {
-        const internalConfig = axiosConfig as CustomAxiosRequestConfig;
+      async (config: InternalAxiosRequestConfig) => {
+        const internalConfig = config as CustomAxiosRequestConfig;
         const authPathSegment = '/v0.5/sessions';
 
-        // Do not add auth token for session creation requests
+        // Skip auth for session creation requests
         if (internalConfig.url?.includes(authPathSegment)) {
-          return internalConfig;
+          return config;
         }
 
         let currentToken = internalConfig.authToken || this._authToken;
 
-        // Check if the token is expired
+        // Check if token is expired
         if (currentToken && this._tokenExpiry && new Date() >= this._tokenExpiry) {
-          currentToken = null; // Token is expired
+          currentToken = null;
         }
 
-        // If no token, try to authenticate
+        // Try to authenticate if no valid token
         if (!currentToken && this.config.clientId && this.config.clientSecret) {
           try {
             await this.authenticate();
             currentToken = this._authToken;
           } catch (error) {
-            console.error('Failed to re-authenticate during request:', error);
-            // Do not throw here, let the request fail with 401
+            logger.error('Failed to re-authenticate during request:', error);
+            // Continue without token, will fail with 401
           }
         }
 
-        // Add Authorization header if a token exists
+        // Add Authorization header if we have a token
         if (currentToken) {
           internalConfig.headers.Authorization = `Bearer ${currentToken}`;
         }
 
-        return internalConfig;
+        return config;
       },
-      (error: unknown) => {
+      (error) => {
         return Promise.reject(error);
       }
     );
@@ -131,19 +195,17 @@ export class HttpClient {
       throw new Error('Client ID and Client Secret are required for authentication.');
     }
     try {
-      const authUrl = `${this.config.basePath}/v0.5/sessions`;
-      const authString = Buffer.from(
-        `${this.config.clientId}:${this.config.clientSecret}`
-      ).toString('base64');
+      const authUrl = `${this.config.baseURL || ''}/v0.5/sessions`;
+      const authString = Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString('base64');
 
-      const response = await axios.post(
+      const response = await axios.post<AuthTokenResponse>(
         authUrl,
-        { grantType: 'client_credentials' }, // Added grantType as per spec
+        { grantType: 'client_credentials' },
         {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Basic ${authString}`,
-            'X-CM-ID': this.config.xcmId || 'sbx',
+            'X-CM-ID': (this.config as any).xcmId || 'sbx',
           },
         }
       );
@@ -154,19 +216,17 @@ export class HttpClient {
       }
 
       this._authToken = accessToken;
-      // Set expiry with a 5-minute buffer
       this._tokenExpiry = new Date(Date.now() + (expiresIn - 300) * 1000);
     } catch (error: unknown) {
       let errorMessage: string;
       if (axios.isAxiosError(error)) {
-        errorMessage =
-          error.response?.data?.error?.message || error.message || 'Unknown authentication error';
+        errorMessage = error.response?.data?.error?.message || error.message || 'Unknown authentication error';
       } else if (error instanceof Error) {
         errorMessage = error.message;
       } else {
         errorMessage = 'An unexpected error occurred during authentication.';
       }
-      console.error('ABDM Authentication Error:', error);
+      logger.error('ABDM Authentication Error:', error);
       throw new Error(`Authentication failed: ${errorMessage}`);
     }
   }
@@ -192,7 +252,7 @@ export class HttpClient {
       );
       return encrypted.toString('base64');
     } catch (error: unknown) {
-      console.error('Encryption failed:', error);
+      logger.error('Encryption failed:', error);
       if (error instanceof Error) {
         throw new Error(`Encryption failed: ${error.message}`);
       }
@@ -202,131 +262,70 @@ export class HttpClient {
 
   /**
    * The core request method for all HTTP calls.
-   * @param method The HTTP method (e.g., GET, POST, PUT, DELETE).
-   * @param url The URL for the request.
-   * @param data The request data (if applicable).
-   * @param options Custom request options.
+   * @param config The Axios request config.
    * @returns A standardized APIResponse object.
    */
-  private normalizeError(error: AxiosError<APIResponse<any>>): {
-    code: string;
-    message: string;
-    details?: APIErrorDetails[];
-  } {
-    const response = error.response?.data;
-    const errorData: AbdmErrorData = response?.error || response || {};
-
-    return {
-      code: errorData.code || errorData.error?.code || 'UNKNOWN_ERROR',
-      message: errorData.message || errorData.error?.message || error.message,
-      details: errorData.details || errorData.error?.details,
-    };
-  }
-
-  private async request<T = any>(
-    method: string,
-    url: string,
-    data?: any,
-    options: RequestOptions = {}
-  ): Promise<APIResponse<T>> {
-    const { authToken, headers = {}, ...rest } = options;
-    const requestId = crypto.randomUUID();
-
-    // Prepare the request config
-    const config: CustomAxiosRequestConfig = {
-      method,
-      url,
-      data,
-      headers: {
-        ...headers,
-      } as AxiosRequestHeaders,
-      ...rest,
-    };
-
-    // Log the request
-    logger.debug({
-      requestId,
-      method,
-      url,
-      headers: config.headers,
-      data: data ? '*** REDACTED ***' : undefined,
-    }, 'Sending HTTP request');
-
-    // Add auth token if provided
-    if (authToken) {
-      config.headers['Authorization'] = `Bearer ${authToken}`;
-    }
-
+  private async request<T>(config: AxiosRequestConfig): Promise<APIResponse<T>> {
     try {
-      const response = await this.client.request<APIResponse<T>>(config);
-
-      // Log successful response
-      logger.debug({
-        requestId,
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-        data: response.data ? '*** REDACTED ***' : undefined,
-      }, 'Received HTTP response');
-
+      const response = await this.client.request<APIResponse<T>>({
+        ...config,
+        headers: {
+          ...config.headers,
+          'X-Request-ID': uuidv4(),
+          'X-Timestamp': new Date().toISOString(),
+        },
+      });
       return response.data;
     } catch (error) {
-      // Log error response
       if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError<APIResponse<any>>;
-        const errorData = this.normalizeError(axiosError);
-
-        logger.error({
-          requestId,
-          status: axiosError.response?.status,
-          statusText: axiosError.response?.statusText,
-          error: errorData,
-          responseHeaders: axiosError.response?.headers,
-          responseData: axiosError.response?.data ? '*** REDACTED ***' : undefined,
-        }, 'HTTP request failed');
-
-        throw new Error(
-          errorData.message || 'An unknown error occurred'
-        );
+        throw this.normalizeError(error);
       }
-
-      // Handle non-Axios errors
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      
-      logger.error({
-        requestId,
-        error: errorMessage,
-        stack: errorStack,
-      }, 'Non-HTTP error occurred');
-
       throw error;
     }
+  }
+
+  /**
+   * Normalize error response from Axios.
+   * @param error The Axios error.
+   * @returns A standardized error object.
+   */
+  private normalizeError(error: AxiosError<APIResponse<any>>): Error {
+    const response = error.response?.data;
+    const errorData: AbdmErrorData = (response as any)?.error || response || {};
+
+    const errorMessage = errorData.message || errorData.error?.message || error.message;
+    const errorCode = errorData.code || errorData.error?.code || 'UNKNOWN_ERROR';
+
+    const normalizedError = new Error(`[${errorCode}] ${errorMessage}`) as any;
+    normalizedError.code = errorCode;
+    normalizedError.details = errorData.details || errorData.error?.details;
+
+    if (error.response?.status) {
+      normalizedError.status = error.response.status;
     }
+
+    return normalizedError;
   }
 
   // --- HTTP Method Helpers ---
 
-  public get<T>(path: string, options?: RequestOptions): Promise<APIResponse<T>> {
-    return this.request<T>({ method: 'GET', url: path }, options);
+  public async get<T>(url: string, config?: AxiosRequestConfig): Promise<APIResponse<T>> {
+    return this.request<T>({ ...config, method: 'GET', url });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public post<T>(path: string, data: any, options?: RequestOptions): Promise<APIResponse<T>> {
-    return this.request<T>({ method: 'POST', url: path, data }, options);
+  public async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<APIResponse<T>> {
+    return this.request<T>({ ...config, method: 'POST', url, data });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public put<T>(path: string, data: any, options?: RequestOptions): Promise<APIResponse<T>> {
-    return this.request<T>({ method: 'PUT', url: path, data }, options);
+  public async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<APIResponse<T>> {
+    return this.request<T>({ ...config, method: 'PUT', url, data });
   }
 
-  public delete<T>(path: string, options?: RequestOptions): Promise<APIResponse<T>> {
-    return this.request<T>({ method: 'DELETE', url: path }, options);
+  public async delete<T>(url: string, config?: AxiosRequestConfig): Promise<APIResponse<T>> {
+    return this.request<T>({ ...config, method: 'DELETE', url });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public patch<T>(path: string, data: any, options?: RequestOptions): Promise<APIResponse<T>> {
-    return this.request<T>({ method: 'PATCH', url: path, data }, options);
+  public async patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<APIResponse<T>> {
+    return this.request<T>({ ...config, method: 'PATCH', url, data });
   }
 }

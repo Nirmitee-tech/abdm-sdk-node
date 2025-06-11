@@ -1,8 +1,8 @@
-import { ABDMConfig } from './types/common';
-import { HttpClient } from './utils/http-client';
 import { M1Service } from './services/m1.service';
 import { M2Service } from './services/m2.service';
 import { M3Service } from './services/m3.service';
+import type { ABDMConfig } from './types/common';
+import { HttpClient } from './utils/http-client';
 
 /**
  * Main client for interacting with the Ayushman Bharat Digital Mission (ABDM) APIs
@@ -36,7 +36,7 @@ export class ABDMClient {
 
     // Set default values if not provided
     const effectiveConfig: ABDMConfig = {
-      basePath: 'https://dev.abdm.gov.in/gateway',
+      baseURL: 'https://dev.abdm.gov.in/gateway',
       useSandbox: true,
       ...config,
     };
@@ -83,7 +83,7 @@ export class ABDMClient {
    * @returns The current authentication token or null if not authenticated
    */
   public getAuthToken(): string | null {
-    return this.http['authToken'];
+    return this.http.authToken;
   }
 
   /**
@@ -110,9 +110,7 @@ export class ABDMClient {
     // Debug log for test
     if (process.env.NODE_ENV === 'test') {
       // eslint-disable-next-line no-console
-      process.stdout.write(
-        `[isTokenValid] now: ${now.getTime()}, tokenExpiry: ${tokenExpiry?.getTime()}\n`
-      );
+      process.stdout.write(`[isTokenValid] now: ${now.getTime()}, tokenExpiry: ${tokenExpiry?.getTime()}\n`);
     }
     return now < tokenExpiry;
   }

@@ -1,7 +1,9 @@
 const axiosPostMock = jest.fn();
+import type { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios from 'axios';
+
+import type { ABDMConfig } from '../src/types/common';
 import { HttpClient } from '../src/utils/http-client';
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { ABDMConfig } from '../src/types/common';
 
 // This will be used by HttpClient.authenticate for direct calls
 
@@ -23,7 +25,9 @@ const createMockAxiosInstance = () => {
     interceptors: {
       request: {
         use: jest.fn((onFulfilled, onRejected) => {
-          console.error(`[TEST_DEBUG] currentMockAxiosInstance.interceptors.request.use called. onFulfilled is ${onFulfilled ? 'DEFINED' : 'NULL'}`); // DEBUG_LOG
+          console.error(
+            `[TEST_DEBUG] currentMockAxiosInstance.interceptors.request.use called. onFulfilled is ${onFulfilled ? 'DEFINED' : 'NULL'}`
+          ); // DEBUG_LOG
           if (onFulfilled) {
             requestInterceptor = onFulfilled;
             console.error(`[TEST_DEBUG] Request interceptor function captured in mock.`); // DEBUG_LOG
@@ -46,12 +50,16 @@ const createMockAxiosInstance = () => {
 
   // Setup default mock implementations for instance methods
   instance.get.mockImplementation((url, config) => {
-    console.error(`[TEST_DEBUG] currentMockAxiosInstance.get invoked for URL: ${url}. requestInterceptor is ${requestInterceptor ? 'DEFINED' : 'NULL'}`); // DEBUG_LOG
+    console.error(
+      `[TEST_DEBUG] currentMockAxiosInstance.get invoked for URL: ${url}. requestInterceptor is ${requestInterceptor ? 'DEFINED' : 'NULL'}`
+    ); // DEBUG_LOG
     return instance.request({ ...config, method: 'GET', url });
   });
 
   instance.post.mockImplementation((url, data, config) => {
-    console.error(`[TEST_DEBUG] currentMockAxiosInstance.post invoked for URL: ${url}. requestInterceptor is ${requestInterceptor ? 'DEFINED' : 'NULL'}`); // DEBUG_LOG
+    console.error(
+      `[TEST_DEBUG] currentMockAxiosInstance.post invoked for URL: ${url}. requestInterceptor is ${requestInterceptor ? 'DEFINED' : 'NULL'}`
+    ); // DEBUG_LOG
     return instance.request({ ...config, method: 'POST', url, data });
   });
 
@@ -69,7 +77,9 @@ const createMockAxiosInstance = () => {
 
   // Default request mock: tries to apply interceptor
   instance.request.mockImplementation(async (config: AxiosRequestConfig) => {
-    console.error(`[TEST_DEBUG] currentMockAxiosInstance.request invoked for URL: ${config.url}, Method: ${config.method}. requestInterceptor is ${requestInterceptor ? 'DEFINED' : 'NULL'}`); // DEBUG_LOG
+    console.error(
+      `[TEST_DEBUG] currentMockAxiosInstance.request invoked for URL: ${config.url}, Method: ${config.method}. requestInterceptor is ${requestInterceptor ? 'DEFINED' : 'NULL'}`
+    ); // DEBUG_LOG
     try {
       let processedConfig = config;
       if (requestInterceptor) {
@@ -81,16 +91,34 @@ const createMockAxiosInstance = () => {
       // In a real test, you might want to customize this based on the URL/method
       // For the token refresh test, the GET to '/test' should succeed after auth
       if (processedConfig.url === '/test' && processedConfig.method === 'GET') {
-        return Promise.resolve({ data: { message: 'success' }, status: 200, statusText: 'OK', headers: {}, config: processedConfig } as AxiosResponse);
+        return Promise.resolve({
+          data: { message: 'success' },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: processedConfig,
+        } as AxiosResponse);
       }
       // For the auth call itself (axios.post to sessions endpoint)
       if (processedConfig.url?.includes('/sessions') && processedConfig.method === 'POST') {
         // This path should ideally be handled by the global axiosPostMock, not the instance.request
         // However, if HttpClient uses its own instance for auth, this might be hit.
         // Let's assume auth success for now if it comes through here.
-        return Promise.resolve({ data: { accessToken: 'new-test-token', expiresIn: 3600 }, status: 200, statusText: 'OK', headers: {}, config: processedConfig } as AxiosResponse);
+        return Promise.resolve({
+          data: { accessToken: 'new-test-token', expiresIn: 3600 },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: processedConfig,
+        } as AxiosResponse);
       }
-      return Promise.resolve({ data: { message: 'default mock success' }, status: 200, statusText: 'OK', headers: {}, config: processedConfig } as AxiosResponse);
+      return Promise.resolve({
+        data: { message: 'default mock success' },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: processedConfig,
+      } as AxiosResponse);
     } catch (error) {
       console.error('[TEST_DEBUG] Error in currentMockAxiosInstance.request:', error); // DEBUG_LOG
       return Promise.reject(error);
@@ -99,7 +127,6 @@ const createMockAxiosInstance = () => {
 
   return instance;
 };
-
 
 // Mock axios module
 jest.mock('axios', () => ({
@@ -111,14 +138,15 @@ jest.mock('axios', () => ({
       currentMockAxiosInstance = newMockInstance; // Assign to the accessible variable
       console.error('[TEST_DEBUG] axios.create (mock factory) CALLED. Assigning and returning newMockInstance.'); // DEBUG_LOG
       console.error(`[TEST_DEBUG] newMockInstance.get is a mock? ${!!newMockInstance.get.mock}`); // DEBUG_LOG
-      console.error(`[TEST_DEBUG] newMockInstance.interceptors.request.use is a mock? ${!!newMockInstance.interceptors.request.use.mock}`); // DEBUG_LOG
+      console.error(
+        `[TEST_DEBUG] newMockInstance.interceptors.request.use is a mock? ${!!newMockInstance.interceptors.request.use.mock}`
+      ); // DEBUG_LOG
       return newMockInstance as unknown as AxiosInstance;
     }),
     post: axiosPostMock, // Used for HttpClient.authenticate direct call
   },
   AxiosError: jest.requireActual('axios').AxiosError, // Export AxiosError
 }));
-
 
 // Helper function to create an Axios error
 const createAxiosError = (status: number, data: any): AxiosError => {
@@ -128,7 +156,7 @@ const createAxiosError = (status: number, data: any): AxiosError => {
     status,
     data: {
       message: data?.message || 'An error occurred',
-      ...data
+      ...data,
     },
     statusText: 'Error',
     headers: {},
@@ -151,11 +179,11 @@ describe('HttpClient', () => {
   beforeEach(() => {
     // Reset mocks before each test
     jest.clearAllMocks();
-    
+
     // Reset interceptor references
     requestInterceptor = null;
     responseInterceptor = null;
-    
+
     // Create a new HttpClient instance for each test
     // This will trigger axios.create, which in turn sets currentMockAxiosInstance via our mock factory
     httpClient = new HttpClient(mockConfig);
@@ -169,7 +197,7 @@ describe('HttpClient', () => {
         timeout: 30000,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
       });
     });
@@ -180,15 +208,15 @@ describe('HttpClient', () => {
         basePath: 'https://custom-api.example.com',
         timeout: 60000,
       };
-      
+
       new HttpClient(customConfig);
-      
+
       expect(axios.create).toHaveBeenCalledWith({
         baseURL: 'https://custom-api.example.com',
         timeout: 60000,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
       });
     });
@@ -215,8 +243,8 @@ describe('HttpClient', () => {
       await httpClient.authenticate();
 
       // Verify the auth token was set
-      expect(httpClient['authToken']).toBe(authResponse.accessToken);
-      expect(httpClient['tokenExpiry']).toBeInstanceOf(Date);
+      expect(httpClient.authToken).toBe(authResponse.accessToken);
+      expect(httpClient.tokenExpiry).toBeInstanceOf(Date);
 
       // Verify the auth request was made with the correct data
       expect(axiosPostMock).toHaveBeenCalledWith(
@@ -224,7 +252,7 @@ describe('HttpClient', () => {
         {},
         {
           headers: {
-            'Authorization': expect.stringMatching(/^Basic /),
+            Authorization: expect.stringMatching(/^Basic /),
             'Content-Type': 'application/json',
             'X-CM-ID': 'sbx',
           },
@@ -240,16 +268,14 @@ describe('HttpClient', () => {
     it('should throw an error if authentication fails', async () => {
       axiosPostMock.mockRejectedValueOnce(new Error('Network error'));
 
-      await expect(httpClient.authenticate()).rejects.toThrow(
-        'Failed to authenticate with ABDM'
-      );
+      await expect(httpClient.authenticate()).rejects.toThrow('Failed to authenticate with ABDM');
     });
   });
 
   describe('request methods', () => {
     it('should make a GET request', async () => {
       const responseData = { data: 'test' };
-      
+
       // Mock the instance's request method for this test
       currentMockAxiosInstance.request.mockResolvedValueOnce({
         data: responseData,
@@ -258,9 +284,9 @@ describe('HttpClient', () => {
         headers: {},
         config: {},
       });
-      
+
       const response = await httpClient.get('/test');
-      
+
       expect(response).toEqual({
         success: true,
         status: 200,
@@ -268,7 +294,7 @@ describe('HttpClient', () => {
         data: responseData,
         headers: {},
       });
-      
+
       // Verify the request was made with the correct config
       expect(currentMockAxiosInstance.request).toHaveBeenCalledWith({
         method: 'GET',
@@ -278,10 +304,10 @@ describe('HttpClient', () => {
         timeout: 30000,
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         }),
       });
-      
+
       axiosPostMock.mockClear(); // Clear calls for this specific mock for safety, though clearAllMocks should cover it.
     });
 
@@ -295,7 +321,10 @@ describe('HttpClient', () => {
         if (url === 'https://dev.abdm.gov.in/gateway/v0.5/sessions') {
           return Promise.resolve({
             data: { accessToken: newToken, expiresIn },
-            status: 200, statusText: 'OK', headers: {}, config: {}
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config: {},
           });
         }
         // For any other axios.post call, you might want to throw or return a specific mock
@@ -308,20 +337,26 @@ describe('HttpClient', () => {
         useSandbox: true,
       });
       // Simulate state where no token exists, requiring initial authentication via interceptor
-      httpClientWithConfig['_authToken'] = null;
-      httpClientWithConfig['_tokenExpiry'] = null;
+      httpClientWithConfig._authToken = null;
+      httpClientWithConfig._tokenExpiry = null;
 
       // Set the mock for the correct instance after HttpClient is created
       currentMockAxiosInstance.request.mockImplementation((config: AxiosRequestConfig) => {
         if (config.url === '/protected' && config.method === 'GET') {
           return Promise.resolve({
             data: { message: 'Data from protected endpoint' },
-            status: 200, statusText: 'OK', headers: {}, config,
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config,
           });
         }
         return Promise.resolve({
           data: { message: 'default mock success' },
-          status: 200, statusText: 'OK', headers: {}, config,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
         });
       });
 
@@ -334,18 +369,20 @@ describe('HttpClient', () => {
         {},
         {
           headers: {
-            'Authorization': expect.stringMatching(/^Basic /),
+            Authorization: expect.stringMatching(/^Basic /),
             'Content-Type': 'application/json',
             'X-CM-ID': 'sbx',
           },
         }
       );
       // 2. Check that the original request was then made successfully with the new token
-      expect(currentMockAxiosInstance.request).toHaveBeenCalledWith(expect.objectContaining({
-        method: 'GET',
-        url: '/protected',
-        headers: expect.objectContaining({ authorization: `Bearer ${newToken}` }),
-      }));
+      expect(currentMockAxiosInstance.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'GET',
+          url: '/protected',
+          headers: expect.objectContaining({ authorization: `Bearer ${newToken}` }),
+        })
+      );
       // 3. Check the response from the GET call
       expect(response.success).toBe(true);
       expect(response.data).toEqual({ message: 'Data from protected endpoint' });
@@ -373,13 +410,13 @@ describe('HttpClient', () => {
         message: 'Not Found',
         code: 404,
       };
-      
+
       // Mock the request to reject with an error response
       const error = createAxiosError(404, errorResponse);
       currentMockAxiosInstance.request.mockRejectedValueOnce(error);
 
       const response = await httpClient.get('/not-found');
-      
+
       expect(response).toMatchObject({
         success: false,
         error: expect.objectContaining({
@@ -390,11 +427,11 @@ describe('HttpClient', () => {
         statusCode: 404,
       });
     });
-    
+
     it('should make a POST request', async () => {
       const requestData = { name: 'Test' };
       const responseData = { id: 1, ...requestData };
-      
+
       // Mock the request method to return our test data
       currentMockAxiosInstance.request.mockImplementationOnce(async (config: AxiosRequestConfig) => ({
         data: responseData,
@@ -405,11 +442,11 @@ describe('HttpClient', () => {
       }));
 
       const response = await httpClient.post('/test', requestData);
-      
+
       expect(response.success).toBe(true);
       expect(response.data).toEqual(responseData);
       expect(response.statusCode).toBe(200);
-      
+
       // Verify the request was made with the correct config
       expect(currentMockAxiosInstance.request).toHaveBeenCalledWith({
         method: 'POST',
@@ -419,7 +456,7 @@ describe('HttpClient', () => {
         timeout: 30000,
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         }),
       });
     });
@@ -427,7 +464,7 @@ describe('HttpClient', () => {
     it('should make a PATCH request', async () => {
       const requestData = { name: 'Updated Name' };
       const responseData = { id: 1, ...requestData };
-      
+
       // Mock the request method to return our test data
       currentMockAxiosInstance.request.mockImplementationOnce(async (config: AxiosRequestConfig) => ({
         data: responseData,
@@ -438,11 +475,11 @@ describe('HttpClient', () => {
       }));
 
       const response = await httpClient.patch('/test/1', requestData);
-      
+
       expect(response.success).toBe(true);
       expect(response.data).toEqual(responseData);
       expect(response.statusCode).toBe(200);
-      
+
       // Verify the request was made with the correct config
       expect(currentMockAxiosInstance.request).toHaveBeenCalledWith({
         method: 'PATCH',
@@ -452,14 +489,14 @@ describe('HttpClient', () => {
         timeout: 30000,
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         }),
       });
     });
 
     it('should include auth token in request if provided', async () => {
       const testToken = 'test-token';
-      
+
       // Mock the request to verify the token is included
       currentMockAxiosInstance.request.mockImplementationOnce((config: AxiosRequestConfig) => {
         // Verify the token is included in the request
@@ -474,9 +511,9 @@ describe('HttpClient', () => {
           config,
         });
       });
-      
+
       await httpClient.get('/test', { authToken: testToken });
-      
+
       // Verify the request was made with the correct headers
       expect(currentMockAxiosInstance.request).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -493,7 +530,7 @@ describe('HttpClient', () => {
         message: 'Bad Request',
         details: { field: 'test' },
       });
-      
+
       currentMockAxiosInstance.request.mockRejectedValueOnce(error);
 
       // The error should be caught and returned in the response
@@ -509,18 +546,18 @@ describe('HttpClient', () => {
         statusCode: 400,
       });
     });
-    
+
     it('should handle non-Axios errors', async () => {
       // Mock the request to reject with an authentication error
       const error = createAxiosError(401, {
         message: 'Invalid credentials',
       });
-      
+
       currentMockAxiosInstance.request.mockRejectedValueOnce(error);
-      
+
       // The error should be caught and returned in the response
       const response = await httpClient.get('/auth-error');
-      
+
       expect(response).toMatchObject({
         success: false,
         error: expect.objectContaining({

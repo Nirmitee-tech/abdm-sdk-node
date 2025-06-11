@@ -1,11 +1,7 @@
 import { M3Service } from '../src/services/m3.service';
+import type { BridgeServiceRegistrationRequest, M3ConsentRequest, HealthInformationRequest } from '../src/types/m3';
+import { M3SessionRequest } from '../src/types/m3';
 import { HttpClient } from '../src/utils/http-client';
-import { 
-  M3SessionRequest, 
-  BridgeServiceRegistrationRequest, 
-  M3ConsentRequest, 
-  HealthInformationRequest 
-} from '../src/types/m3';
 
 // Mock the HttpClient
 jest.mock('../src/utils/http-client');
@@ -15,7 +11,7 @@ const m3Service = new M3Service(mockHttpClient);
 
 describe('M3Service', () => {
   const authToken = 'test-token';
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -23,7 +19,6 @@ describe('M3Service', () => {
   // ======================
   // Session Management
   // ======================
-
 
   describe('createSession', () => {
     it('should create a new session', async () => {
@@ -33,7 +28,7 @@ describe('M3Service', () => {
         accessToken: 'test-access-token',
         expiresIn: 3600,
         refreshToken: 'test-refresh-token',
-        tokenType: 'Bearer'
+        tokenType: 'Bearer',
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
@@ -44,22 +39,21 @@ describe('M3Service', () => {
 
       const result = await m3Service.createSession(clientId, clientSecret);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v3/sessions',
-        { clientId, clientSecret, grantType: 'client_credentials' }
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v3/sessions', {
+        clientId,
+        clientSecret,
+        grantType: 'client_credentials',
+      });
     });
 
     it('should throw an error when session creation fails', async () => {
       mockHttpClient.post.mockResolvedValueOnce({
         success: false,
         statusCode: 401,
-        error: { message: 'Invalid credentials' }
+        error: { message: 'Invalid credentials' },
       });
 
-      await expect(m3Service.createSession('invalid', 'credentials'))
-        .rejects
-        .toThrow('Failed to create session');
+      await expect(m3Service.createSession('invalid', 'credentials')).rejects.toThrow('Failed to create session');
     });
   });
 
@@ -67,12 +61,11 @@ describe('M3Service', () => {
   // Bridge Service Management
   // ======================
 
-
   describe('updateBridgeUrl', () => {
     it('should update bridge URL', async () => {
       const bridgeId = 'bridge-123';
       const url = 'https://new-bridge-url.com';
-      
+
       mockHttpClient.patch.mockResolvedValueOnce({
         success: true,
         data: { success: true },
@@ -81,11 +74,7 @@ describe('M3Service', () => {
 
       const result = await m3Service.updateBridgeUrl(bridgeId, url, authToken);
       expect(result).toEqual({ success: true });
-      expect(mockHttpClient.patch).toHaveBeenCalledWith(
-        `/v3/bridges/${bridgeId}`,
-        { url },
-        { authToken }
-      );
+      expect(mockHttpClient.patch).toHaveBeenCalledWith(`/v3/bridges/${bridgeId}`, { url }, { authToken });
     });
   });
 
@@ -96,18 +85,20 @@ describe('M3Service', () => {
         name: 'Test Service',
         types: ['HIU'],
         endpoints: {
-          hiuEndpoints: [{
-            use: 'hiu-service',
-            connectionType: 'REST',
-            address: 'https://hiu-service.com'
-          }]
+          hiuEndpoints: [
+            {
+              use: 'hiu-service',
+              connectionType: 'REST',
+              address: 'https://hiu-service.com',
+            },
+          ],
         },
-        active: true
+        active: true,
       };
 
       const mockResponse = {
         ...service,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
@@ -118,18 +109,13 @@ describe('M3Service', () => {
 
       const result = await m3Service.registerBridgeService(service, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v3/services',
-        service,
-        { authToken }
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v3/services', service, { authToken });
     });
   });
 
   // ======================
   // HIU Consent APIs
   // ======================
-
 
   describe('initConsentRequest', () => {
     it('should initialize a consent request', async () => {
@@ -139,30 +125,30 @@ describe('M3Service', () => {
         consent: {
           purpose: {
             text: 'Treatment',
-            code: 'TREATMENT'
+            code: 'TREATMENT',
           },
           patient: {
-            id: 'patient-123'
+            id: 'patient-123',
           },
           hiTypes: ['OPConsultation'],
           permission: {
             accessMode: 'VIEW',
             dateRange: {
               from: '2023-01-01T00:00:00.000Z',
-              to: '2023-12-31T23:59:59.999Z'
+              to: '2023-12-31T23:59:59.999Z',
             },
             dataEraseAt: '2024-01-31T23:59:59.999Z',
             frequency: {
               unit: 'HOUR',
               value: '1',
-              repeats: 1
-            }
-          }
-        }
+              repeats: 1,
+            },
+          },
+        },
       };
 
       const mockResponse = {
-        requestId: 'req-123'
+        requestId: 'req-123',
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
@@ -173,11 +159,7 @@ describe('M3Service', () => {
 
       const result = await m3Service.initConsentRequest(consentRequest, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v0.5/consent-requests/init',
-        consentRequest,
-        { authToken }
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/consent-requests/init', consentRequest, { authToken });
     });
   });
 
@@ -191,12 +173,14 @@ describe('M3Service', () => {
           id: 'consent-123',
           status: 'GRANTED',
           createdAt: new Date().toISOString(),
-          consentArtefacts: [{
-            id: 'artefact-123',
-            status: 'GRANTED',
-            signature: 'signature-123'
-          }]
-        }
+          consentArtefacts: [
+            {
+              id: 'artefact-123',
+              status: 'GRANTED',
+              signature: 'signature-123',
+            },
+          ],
+        },
       };
 
       mockHttpClient.get.mockResolvedValueOnce({
@@ -207,17 +191,13 @@ describe('M3Service', () => {
 
       const result = await m3Service.getConsentRequestStatus(requestId, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.get).toHaveBeenCalledWith(
-        `/v0.5/consent-requests/status/${requestId}`,
-        { authToken }
-      );
+      expect(mockHttpClient.get).toHaveBeenCalledWith(`/v0.5/consent-requests/status/${requestId}`, { authToken });
     });
   });
 
   // ======================
   // Health Information APIs
   // ======================
-
 
   describe('requestHealthInformation', () => {
     it('should request health information', async () => {
@@ -228,7 +208,7 @@ describe('M3Service', () => {
           consentId: 'consent-123',
           dateRange: {
             from: '2023-01-01T00:00:00.000Z',
-            to: '2023-12-31T23:59:59.999Z'
+            to: '2023-12-31T23:59:59.999Z',
           },
           dataPushUrl: 'https://callback.example.com/health-data',
           keyMaterial: {
@@ -237,19 +217,19 @@ describe('M3Service', () => {
             dhPublicKey: {
               expiry: '2023-12-31T23:59:59.999Z',
               keyValue: 'public-key-value',
-              parameters: 'Curve25519/32byte random key'
+              parameters: 'Curve25519/32byte random key',
             },
-            nonce: 'nonce-value'
-          }
-        }
+            nonce: 'nonce-value',
+          },
+        },
       };
 
       const mockResponse = {
         requestId: 'req-123',
         timestamp: new Date().toISOString(),
         hiRequest: {
-          sessionStatus: 'REQUESTED'
-        }
+          sessionStatus: 'REQUESTED',
+        },
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
@@ -260,11 +240,9 @@ describe('M3Service', () => {
 
       const result = await m3Service.requestHealthInformation(healthInfoRequest, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v0.5/health-information/request',
-        healthInfoRequest,
-        { authToken }
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/health-information/request', healthInfoRequest, {
+        authToken,
+      });
     });
   });
 });

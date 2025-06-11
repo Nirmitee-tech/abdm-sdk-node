@@ -1,4 +1,4 @@
-import { APIResponse } from './common';
+import type { APIResponse } from './common';
 
 // Health Facility Types
 export interface HealthFacilityRequest {
@@ -111,6 +111,8 @@ export interface FetchRecordsOptions {
   fromDate?: string;
   toDate?: string;
   hiTypes?: string[];
+  category?: string;
+  type?: string;
   limit?: number;
   offset?: number;
 }

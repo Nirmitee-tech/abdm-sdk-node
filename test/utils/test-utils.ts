@@ -1,4 +1,4 @@
-import { ABDMConfig } from '../../src/types/common';
+import type { ABDMConfig } from '../../src/types/common';
 
 /**
  * Creates a mock ABDMConfig for testing
@@ -64,7 +64,7 @@ export const mockAxiosError = (message: string, status = 400) => ({
 /**
  * Sleep helper for testing timeouts
  */
-export const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Creates a mock Date object with a specific timestamp
@@ -83,7 +83,7 @@ export const mockDate = (dateString: string) => {
       return mockDate.getTime();
     }
   };
-  
+
   // Return a function to restore the original Date
   return () => {
     global.Date = _Date;

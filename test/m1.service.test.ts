@@ -1,12 +1,12 @@
 import { M1Service } from '../src/services/m1.service';
-import { HttpClient } from '../src/utils/http-client';
-import { 
+import type { ABHAAddressResponse } from '../src/types';
+import {
   LegacyABHACreationRequest as ABHACreationRequest, // Renamed for test compatibility, consider updating tests to use Legacy directly
   ABHACreationResponse,
-  ABHAAddressResponse,
   MessageResponse,
-  ABHAAddressRequest
+  ABHAAddressRequest,
 } from '../src/types';
+import { HttpClient } from '../src/utils/http-client';
 
 // Mock the HttpClient
 jest.mock('../src/utils/http-client');
@@ -18,7 +18,7 @@ describe('M1Service', () => {
   const authToken = 'test-token';
   const mockClientId = 'test-client-id';
   const mockClientSecret = 'test-client-secret';
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -27,14 +27,13 @@ describe('M1Service', () => {
   // Session Management
   // ======================
 
-
   describe('createGatewaySession', () => {
     it('should create a new session', async () => {
       const mockResponse = {
         accessToken: 'test-access-token',
         expiresIn: 3600,
         refreshToken: 'test-refresh-token',
-        refreshExpiresIn: 2592000
+        refreshExpiresIn: 2592000,
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
@@ -57,7 +56,6 @@ describe('M1Service', () => {
   // Aadhaar OTP Flow
   // ======================
 
-
   describe('sendAadhaarOTP', () => {
     it('should send OTP to Aadhaar linked mobile', async () => {
       const aadhaar = '123456789012';
@@ -78,7 +76,13 @@ describe('M1Service', () => {
         scope: [purpose],
         txnId,
       };
-      const expectedHeaders = { headers: { 'Content-Type': 'application/json', 'REQUEST-ID': expect.any(String), 'TIMESTAMP': expect.any(String) } };
+      const expectedHeaders = {
+        headers: {
+          'Content-Type': 'application/json',
+          'REQUEST-ID': expect.any(String),
+          TIMESTAMP: expect.any(String),
+        },
+      };
 
       const result = await m1Service.sendAadhaarOTP({ aadhaar, purpose, txnId });
       expect(result.data).toEqual(mockResponse);
@@ -109,7 +113,13 @@ describe('M1Service', () => {
         },
         consent: { code: 'abha-enrollment', version: '1.4' },
       };
-      const expectedHeaders = { headers: { 'Content-Type': 'application/json', 'REQUEST-ID': expect.any(String), 'TIMESTAMP': expect.any(String) } };
+      const expectedHeaders = {
+        headers: {
+          'Content-Type': 'application/json',
+          'REQUEST-ID': expect.any(String),
+          TIMESTAMP: expect.any(String),
+        },
+      };
 
       const result = await m1Service.verifyAadhaarOTPAndCreateABHA(otp, txnId);
       expect(result.data).toEqual(mockResponse);
@@ -124,7 +134,6 @@ describe('M1Service', () => {
   // ======================
   // ABHA Creation
   // ======================
-
 
   /*
   describe('createABHAWithAadhaar', () => {
@@ -178,11 +187,26 @@ describe('M1Service', () => {
   // Mobile Update Flow
   // ======================
 
-
   describe('sendMobileUpdateOTP', () => {
     it('should send OTP for mobile update', async () => {
       const mobile = '9876543210';
-      const mockResponse = { txnId: 'txn-123', token: 'test-token', expiresIn: 3600, refreshToken: 'test-refresh-token', profile: { abhaNumber: '12-3456-7890-1234', abhaAddress: 'test@abdm', firstName: 'Test', lastName: 'User', name: 'Test User', gender: 'M', dob: '1990-01-01', mobileNumber: '9876543210', email: 'test@example.com' } };
+      const mockResponse = {
+        txnId: 'txn-123',
+        token: 'test-token',
+        expiresIn: 3600,
+        refreshToken: 'test-refresh-token',
+        profile: {
+          abhaNumber: '12-3456-7890-1234',
+          abhaAddress: 'test@abdm',
+          firstName: 'Test',
+          lastName: 'User',
+          name: 'Test User',
+          gender: 'M',
+          dob: '1990-01-01',
+          mobileNumber: '9876543210',
+          email: 'test@example.com',
+        },
+      };
 
       mockHttpClient.post.mockResolvedValueOnce({
         success: true,
@@ -225,7 +249,6 @@ describe('M1Service', () => {
   // Email Verification
   // ======================
 
-
   describe('sendEmailVerificationLink', () => {
     it('should send email verification link', async () => {
       const email = 'test@example.com';
@@ -243,8 +266,8 @@ describe('M1Service', () => {
           gender: 'M',
           dob: '1990-01-01',
           mobileNumber: '9876543210',
-          email: 'test@example.com'
-        }
+          email: 'test@example.com',
+        },
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
@@ -267,7 +290,6 @@ describe('M1Service', () => {
   // ABHA Address Management
   // ======================
 
-
   describe('getABHAAddressSuggestions', () => {
     it('should get ABHA address suggestions', async () => {
       const txnId = 'txn-123';
@@ -286,10 +308,10 @@ describe('M1Service', () => {
 
       const result = await m1Service.getABHAAddressSuggestions(txnId, authToken);
       expect(result.data).toEqual(mockResponse);
-      expect(mockHttpClient.get).toHaveBeenCalledWith(
-        '/v1/account/phr/suggestion',
-        { headers: { 'X-Token': authToken }, params: { txnId } }
-      );
+      expect(mockHttpClient.get).toHaveBeenCalledWith('/v1/account/phr/suggestion', {
+        headers: { 'X-Token': authToken },
+        params: { txnId },
+      });
     });
   });
 
@@ -312,8 +334,8 @@ describe('M1Service', () => {
           gender: 'M',
           dob: '1990-01-01',
           mobileNumber: '9876543210',
-          email: 'test@example.com'
-        }
+          email: 'test@example.com',
+        },
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
