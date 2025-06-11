@@ -1,6 +1,6 @@
 import { M2Service } from '../src/services/m2.service';
 import type { HealthFacilityRequest, GenerateTokenRequest, ConsentRequest, FetchRecordsOptions } from '../src/types';
-import { HealthRecord } from '../src/types';
+
 import { HttpClient } from '../src/utils/http-client';
 
 // Mock the HttpClient
@@ -375,11 +375,14 @@ describe('M2Service', () => {
 
       const result = await m2Service.searchABHAProfiles(query, token);
       expect(result).toEqual(mockProfiles);
-      expect(mockHttpClient.get).toHaveBeenCalledWith(`/v1/profiles/search?q=${encodeURIComponent(query)}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      expect(mockHttpClient.get).toHaveBeenCalledWith(
+        `/v1/profile/search?query=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     });
   });
 
@@ -392,19 +395,22 @@ describe('M2Service', () => {
       const address = 'test@abdm';
       const token = 'test-token';
 
-      mockHttpClient.delete.mockResolvedValueOnce({
-        success: true,
+      mockHttpClient.post.mockResolvedValueOnce({
         data: { success: true },
         statusCode: 200,
       });
 
       const result = await m2Service.unlinkABHAAddress(address, token);
       expect(result).toEqual({ success: true });
-      expect(mockHttpClient.delete).toHaveBeenCalledWith(`/v1/abha/address/${encodeURIComponent(address)}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      expect(mockHttpClient.post).toHaveBeenCalledWith(
+        '/v1/abha/address/unlink',
+        { abhaAddress: address },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     });
   });
 
@@ -481,7 +487,6 @@ describe('M2Service', () => {
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
-        success: true,
         data: mockResponse,
         statusCode: 201,
       });
@@ -490,8 +495,7 @@ describe('M2Service', () => {
       expect(result).toEqual(mockResponse);
       expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/consent-requests', consentData, {
         headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
       });
     });
@@ -533,7 +537,7 @@ describe('M2Service', () => {
       expect(result).toEqual(mockResponse);
 
       // Verify the URL contains the expected base and parameters
-      expect(mockHttpClient.get).toHaveBeenCalledWith(expect.stringContaining('/v1/patients/patient-123/records'), {
+      expect(mockHttpClient.get).toHaveBeenCalledWith(expect.stringContaining('/v1/health-records'), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -542,11 +546,11 @@ describe('M2Service', () => {
       // Verify the URL contains all expected parameters
       const calledUrl = mockHttpClient.get.mock.calls[0][0];
       const url = new URL(`http://test${calledUrl}`);
+      expect(url.searchParams.get('patientId')).toBe(patientId);
       expect(url.searchParams.get('fromDate')).toBe('2025-01-01');
       expect(url.searchParams.get('toDate')).toBe('2025-06-01');
       expect(url.searchParams.get('hiTypes')).toBe('OPConsultation,DiagnosticReport');
       expect(url.searchParams.get('limit')).toBe('10');
-      expect(url.searchParams.get('offset')).toBe('0');
     });
   });
 

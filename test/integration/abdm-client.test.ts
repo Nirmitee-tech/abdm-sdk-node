@@ -2,7 +2,6 @@ import type { AxiosInstance } from 'axios';
 import axios from 'axios';
 
 import { ABDMClient } from '../../src/abdm-client';
-import { HttpClient } from '../../src/utils/http-client';
 
 // Mock axios
 jest.mock('axios');
@@ -100,7 +99,7 @@ describe('ABDMClient Integration', () => {
       await client.authenticate();
       expect(axios.post).toHaveBeenCalledWith(
         'https://dev.abdm.gov.in/gateway/v0.5/sessions',
-        {},
+        { grantType: 'client_credentials' },
         {
           headers: {
             Authorization: 'Basic dGVzdC1jbGllbnQ6dGVzdC1zZWNyZXQ=',
@@ -118,7 +117,7 @@ describe('ABDMClient Integration', () => {
       const error = new Error('Network Error');
       mockedAxios.post.mockRejectedValueOnce(error);
 
-      await expect(client.authenticate()).rejects.toThrow('Failed to authenticate with ABDM');
+      await expect(client.authenticate()).rejects.toThrow('Authentication failed: Network Error');
       expect(client.getAuthToken()).toBeNull();
       expect(client.isTokenValid()).toBe(false);
     });
@@ -137,7 +136,7 @@ describe('ABDMClient Integration', () => {
         const client = new ABDMClient({
           clientId: 'test-client',
           clientSecret: 'test-secret',
-          xcmId: 'sbx',
+          useSandbox: true,
         });
         // Set auth token with expiry
         client.setAuthToken(token, expiresIn);
@@ -168,7 +167,7 @@ describe('ABDMClient Integration', () => {
       client = new ABDMClient({
         clientId: 'test-client',
         clientSecret: 'test-secret',
-        xcmId: 'sbx',
+        useSandbox: true,
       });
       // Mock a successful authentication
       client.setAuthToken('test-token');

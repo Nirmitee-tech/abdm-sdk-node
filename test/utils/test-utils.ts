@@ -6,9 +6,8 @@ import type { ABDMConfig } from '../../src/types/common';
 export const createTestConfig = (overrides: Partial<ABDMConfig> = {}): ABDMConfig => ({
   clientId: 'test-client-id',
   clientSecret: 'test-client-secret',
-  environment: 'sandbox',
-  baseUrl: 'https://test-api.abdm.gov.in',
-  authBaseUrl: 'https://test-auth.abdm.gov.in',
+  useSandbox: true,
+  baseURL: 'https://test-api.abdm.gov.in',
   ...overrides,
 });
 

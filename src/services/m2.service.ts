@@ -436,13 +436,13 @@ export class M2Service {
       patientId,
     };
 
-    if (options.fromDate) params.fromDate = options.fromDate;
-    if (options.toDate) params.toDate = options.toDate;
-    if (options.category) params.category = options.category;
-    if (options.type) params.type = options.type;
-    if (options.limit) params.limit = options.limit.toString();
-    if (options.offset) params.offset = options.offset.toString();
-    if (options.hiTypes?.length) params.hiTypes = options.hiTypes.join(',');
+    if (options['fromDate']) params['fromDate'] = options['fromDate'];
+    if (options['toDate']) params['toDate'] = options['toDate'];
+    if (options['category']) params['category'] = options['category'];
+    if (options['type']) params['type'] = options['type'];
+    if (options['limit']) params['limit'] = options['limit'].toString();
+    if (options['offset']) params['offset'] = options['offset'].toString();
+    if (options['hiTypes']?.length) params['hiTypes'] = options['hiTypes'].join(',');
 
     const queryParams = new URLSearchParams(params);
 

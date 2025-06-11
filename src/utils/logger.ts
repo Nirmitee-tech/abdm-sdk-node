@@ -15,7 +15,7 @@ if (!fs.existsSync(logDir)) {
 
 // Safely get log level from environment
 const getLogLevel = (): LogLevel => {
-  const level = process.env.LOG_LEVEL?.toLowerCase() as LogLevel | undefined;
+  const level = process.env['LOG_LEVEL']?.toLowerCase() as LogLevel | undefined;
   const validLevels: LogLevel[] = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'];
 
   if (level && validLevels.includes(level)) {

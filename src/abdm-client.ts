@@ -108,7 +108,7 @@ export class ABDMClient {
     // tokenExpiry is already a Date object, so we can compare directly
     const now = new Date();
     // Debug log for test
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env['NODE_ENV'] === 'test') {
       // eslint-disable-next-line no-console
       process.stdout.write(`[isTokenValid] now: ${now.getTime()}, tokenExpiry: ${tokenExpiry?.getTime()}\n`);
     }

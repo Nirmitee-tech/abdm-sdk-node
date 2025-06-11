@@ -1,6 +1,5 @@
 import { M3Service } from '../src/services/m3.service';
 import type { BridgeServiceRegistrationRequest, M3ConsentRequest, HealthInformationRequest } from '../src/types/m3';
-import { M3SessionRequest } from '../src/types/m3';
 import { HttpClient } from '../src/utils/http-client';
 
 // Mock the HttpClient
@@ -74,7 +73,7 @@ describe('M3Service', () => {
 
       const result = await m3Service.updateBridgeUrl(bridgeId, url, authToken);
       expect(result).toEqual({ success: true });
-      expect(mockHttpClient.patch).toHaveBeenCalledWith(`/v3/bridges/${bridgeId}`, { url }, { authToken });
+      expect(mockHttpClient.patch).toHaveBeenCalledWith(`/v3/bridges/${bridgeId}`, { url }, { headers: { Authorization: `Bearer ${authToken}` } });
     });
   });
 
@@ -109,7 +108,7 @@ describe('M3Service', () => {
 
       const result = await m3Service.registerBridgeService(service, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith('/v3/services', service, { authToken });
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v3/services', service, { headers: { Authorization: `Bearer ${authToken}` } });
     });
   });
 
@@ -157,9 +156,9 @@ describe('M3Service', () => {
         statusCode: 202,
       });
 
-      const result = await m3Service.initConsentRequest(consentRequest, authToken);
+      const result = await m3Service.requestConsent(consentRequest, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/consent-requests/init', consentRequest, { authToken });
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/consent-requests', consentRequest, { headers: { Authorization: `Bearer ${authToken}` } });
     });
   });
 
@@ -189,9 +188,9 @@ describe('M3Service', () => {
         statusCode: 200,
       });
 
-      const result = await m3Service.getConsentRequestStatus(requestId, authToken);
+      const result = await m3Service.getConsentStatus(requestId, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.get).toHaveBeenCalledWith(`/v0.5/consent-requests/status/${requestId}`, { authToken });
+      expect(mockHttpClient.get).toHaveBeenCalledWith(`/v0.5/consent-requests/${requestId}/status`, { headers: { Authorization: `Bearer ${authToken}` } });
     });
   });
 
@@ -240,8 +239,8 @@ describe('M3Service', () => {
 
       const result = await m3Service.requestHealthInformation(healthInfoRequest, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/health-information/request', healthInfoRequest, {
-        authToken,
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/health-information', healthInfoRequest, {
+        headers: { Authorization: `Bearer ${authToken}` },
       });
     });
   });
