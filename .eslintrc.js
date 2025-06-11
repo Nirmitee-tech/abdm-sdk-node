@@ -30,7 +30,10 @@ module.exports = {
   },
   settings: {
     'import/resolver': {
-      typescript: {},
+      typescript: {
+        alwaysTryTypes: true,
+        project: ['tsconfig.json', 'tsconfig.test.json', 'tsconfig.examples.json']
+      },
       node: {
         extensions: ['.js', '.jsx', '.ts', '.tsx'],
       },
@@ -38,6 +41,8 @@ module.exports = {
     'import/parsers': {
       '@typescript-eslint/parser': ['.ts', '.tsx'],
     },
+    'import/extensions': ['.js', '.jsx', '.ts', '.tsx'],
+    'import/external-module-folders': ['node_modules', 'node_modules/@types'],
   },
   rules: {
     // TypeScript
