@@ -6,7 +6,7 @@ import type {
   CreateAbhaResponse,
   SessionRequest,
   SessionResponse,
-  ABHAProfileData
+  ABHAProfileData,
 } from '../src/types/m1';
 import { HttpClient } from '../src/utils/http-client';
 
@@ -50,10 +50,7 @@ describe('M1Service', () => {
 
       const result = await m1Service.getSession(sessionRequest);
       expect(result.data).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        `${baseURL}/v3/sessions`,
-        sessionRequest
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith(`${baseURL}/v3/sessions`, sessionRequest);
     });
   });
 
@@ -66,22 +63,19 @@ describe('M1Service', () => {
         otpSystem: 'aadhaar',
         txnId: 'txn-123',
       };
-      
+
       const mockResponse: GenerateOtpResponse = {
         txnId: 'txn-123',
       };
 
       mockHttpClient.post.mockResolvedValueOnce({
         data: mockResponse,
-        status: 200
+        status: 200,
       });
 
       const result = await m1Service.sendAadhaarOTP(otpRequest);
       expect(result.data).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        `${baseURL}/v3/enrollment/request/otp`,
-        otpRequest
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith(`${baseURL}/v3/enrollment/request/otp`, otpRequest);
     });
   });
 
@@ -134,15 +128,12 @@ describe('M1Service', () => {
 
       mockHttpClient.post.mockResolvedValueOnce({
         data: mockResponse,
-        status: 200
+        status: 200,
       });
 
       const result = await m1Service.createAbhaIdByAadhaar(createRequest);
       expect(result.data).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        `${baseURL}/v3/enrollment/enrol/byAadhaar`,
-        createRequest
-      );
+      expect(mockHttpClient.post).toHaveBeenCalledWith(`${baseURL}/v3/enrollment/enrol/byAadhaar`, createRequest);
     });
   });
 });

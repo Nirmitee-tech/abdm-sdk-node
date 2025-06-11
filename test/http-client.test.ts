@@ -403,7 +403,7 @@ describe('HttpClient', () => {
         });
       });
 
-      await httpClient.get('/test', { headers: { 'Authorization': `Bearer ${testToken}` } });
+      await httpClient.get('/test', { headers: { Authorization: `Bearer ${testToken}` } });
 
       // Verify the request was made with the correct headers
       expect(currentMockAxiosInstance.request).toHaveBeenCalledWith(

@@ -13,9 +13,9 @@ global.console = {
 };
 
 // Mock environment variables
-process.env['ABDM_CLIENT_ID'] = 'test-client-id';
-process.env['ABDM_CLIENT_SECRET'] = 'test-client-secret';
-process.env['ABDM_ENVIRONMENT'] = 'sandbox';
+process.env.ABDM_CLIENT_ID = 'test-client-id';
+process.env.ABDM_CLIENT_SECRET = 'test-client-secret';
+process.env.ABDM_ENVIRONMENT = 'sandbox';
 
 // Add any other global test setup here
 

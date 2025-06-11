@@ -1,6 +1,5 @@
 import { M2Service } from '../src/services/m2.service';
 import type { HealthFacilityRequest, GenerateTokenRequest, ConsentRequest, FetchRecordsOptions } from '../src/types';
-
 import { HttpClient } from '../src/utils/http-client';
 
 // Mock the HttpClient
@@ -375,14 +374,11 @@ describe('M2Service', () => {
 
       const result = await m2Service.searchABHAProfiles(query, token);
       expect(result).toEqual(mockProfiles);
-      expect(mockHttpClient.get).toHaveBeenCalledWith(
-        `/v1/profile/search?query=${encodeURIComponent(query)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      expect(mockHttpClient.get).toHaveBeenCalledWith(`/v1/profile/search?query=${encodeURIComponent(query)}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
     });
   });
 
@@ -495,7 +491,7 @@ describe('M2Service', () => {
       expect(result).toEqual(mockResponse);
       expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/consent-requests', consentData, {
         headers: {
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
       });
     });

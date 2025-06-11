@@ -73,7 +73,11 @@ describe('M3Service', () => {
 
       const result = await m3Service.updateBridgeUrl(bridgeId, url, authToken);
       expect(result).toEqual({ success: true });
-      expect(mockHttpClient.patch).toHaveBeenCalledWith(`/v3/bridges/${bridgeId}`, { url }, { headers: { Authorization: `Bearer ${authToken}` } });
+      expect(mockHttpClient.patch).toHaveBeenCalledWith(
+        `/v3/bridges/${bridgeId}`,
+        { url },
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
     });
   });
 
@@ -108,7 +112,9 @@ describe('M3Service', () => {
 
       const result = await m3Service.registerBridgeService(service, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith('/v3/services', service, { headers: { Authorization: `Bearer ${authToken}` } });
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v3/services', service, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
     });
   });
 
@@ -158,7 +164,9 @@ describe('M3Service', () => {
 
       const result = await m3Service.requestConsent(consentRequest, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/consent-requests', consentRequest, { headers: { Authorization: `Bearer ${authToken}` } });
+      expect(mockHttpClient.post).toHaveBeenCalledWith('/v0.5/consent-requests', consentRequest, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
     });
   });
 
@@ -190,7 +198,9 @@ describe('M3Service', () => {
 
       const result = await m3Service.getConsentStatus(requestId, authToken);
       expect(result).toEqual(mockResponse);
-      expect(mockHttpClient.get).toHaveBeenCalledWith(`/v0.5/consent-requests/${requestId}/status`, { headers: { Authorization: `Bearer ${authToken}` } });
+      expect(mockHttpClient.get).toHaveBeenCalledWith(`/v0.5/consent-requests/${requestId}/status`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
     });
   });
 

@@ -10,9 +10,11 @@
   ],
   "scripts": {
     "build": "rimraf dist && tsc",
+    "build:examples": "rimraf dist-examples && tsc -p tsconfig.examples.json",
     "prepare": "husky install && npm run build",
     "prepublishOnly": "npm run lint && npm test",
     "lint": "eslint . --ext .ts,.tsx --cache --fix",
+    "lint:examples": "eslint examples/ --ext .ts --cache --fix",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "typecheck": "tsc --noEmit",
