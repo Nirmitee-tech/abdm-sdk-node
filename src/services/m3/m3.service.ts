@@ -71,7 +71,7 @@ export class M3Service {
       { headers: { Authorization: `Bearer ${authToken}` } }
     );
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       throw new Error('Failed to update bridge URL');
     }
 
@@ -92,7 +92,7 @@ export class M3Service {
       headers: { Authorization: `Bearer ${authToken}` },
     });
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       throw new Error('Failed to register bridge service');
     }
 
@@ -110,7 +110,7 @@ export class M3Service {
       headers: { Authorization: `Bearer ${authToken}` },
     });
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       throw new Error('Failed to get bridge service');
     }
 
@@ -128,7 +128,7 @@ export class M3Service {
       headers: { Authorization: `Bearer ${authToken}` },
     });
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       throw new Error('Bridge or services not found');
     }
 
@@ -150,7 +150,7 @@ export class M3Service {
       headers: { Authorization: `Bearer ${authToken}` },
     });
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       throw new Error('Failed to request consent');
     }
 
@@ -168,7 +168,7 @@ export class M3Service {
       headers: { Authorization: `Bearer ${authToken}` },
     });
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       throw new Error('Failed to get consent status');
     }
 
@@ -188,7 +188,7 @@ export class M3Service {
       { headers: { Authorization: `Bearer ${authToken}` } }
     );
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       throw new Error('Failed to revoke consent');
     }
 
@@ -222,7 +222,7 @@ export class M3Service {
       headers: { Authorization: `Bearer ${authToken}` },
     });
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       throw new Error('Failed to process consent notification');
     }
 
@@ -244,7 +244,7 @@ export class M3Service {
       headers: { Authorization: `Bearer ${authToken}` },
     });
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       throw new Error('Failed to request health information');
     }
 
@@ -269,7 +269,7 @@ export class M3Service {
       { headers: { Authorization: `Bearer ${authToken}` } }
     );
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       throw new Error('Failed to acknowledge health information');
     }
 
@@ -287,7 +287,7 @@ export class M3Service {
       headers: { Authorization: `Bearer ${authToken}` },
     });
 
-    if (response.status >= 400 || !response.data) {
+    if (response.status === 'ERROR' || !response.data) {
       const errorMessage = (response as any).error?.message || 'Unknown error';
       throw new Error(`Failed to fetch health information: ${errorMessage}`);
     }

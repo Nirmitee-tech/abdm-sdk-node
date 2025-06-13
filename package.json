@@ -3,12 +3,33 @@
   "version": "1.0.0",
   "description": "Node.js SDK for Ayushman Bharat Digital Mission (ABDM)",
   "main": "dist/index.js",
-  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./core/common": {
+      "import": "./dist/core/common.js",
+      "require": "./dist/core/common.js"
+    },
+    "./utils/logger": {
+      "import": "./dist/utils/logger.js",
+      "require": "./dist/utils/logger.js",
+      "types": "./dist/utils/logger.d.ts"
+    },
+    "./core/abdm-client": {
+      "import": "./dist/core/abdm-client.js",
+      "require": "./dist/core/abdm-client.js"
+    }
+  },
+  "types": "./dist/types/index.d.ts",
   "files": [
-    "dist",
+    "dist/**/*",
+    "types/**/*",
     "README.md"
   ],
   "scripts": {
+    "postinstall": "ts-node -O '{\"module\":\"CommonJS\"}' scripts/setup-path-aliases.ts",
     "build": "rimraf dist && tsc",
     "build:examples": "rimraf dist-examples && tsc -p tsconfig.examples.json",
     "prepare": "husky install && npm run build",
@@ -103,5 +124,8 @@
     "tslib": "2.8.1",
     "typedoc": "^0.25.3",
     "typescript": "5.8.3"
+  },
+  "typescript": {
+    "configFile": "tsconfig.json"
   }
 }

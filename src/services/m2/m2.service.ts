@@ -1,5 +1,5 @@
 import { HttpClient } from '../../utils/http-client';
-import { HealthFacilityRequest, HealthFacilityResponse, GenerateTokenRequest, GenerateTokenData, ConsentRequest, ConsentResponse, HealthRecordsResponse, ABHAProfileResponse, M2ABHAProfileData, FetchRecordsOptions, HealthRecord, HealthFacilityData, SessionResponse } from '../../types/m2/m2';
+import { HealthFacilityRequest, HealthFacilityResponse, GenerateTokenRequest, GenerateTokenData, ConsentRequest, ConsentResponse, HealthRecordsResponse, ABHAProfileResponse, M2ABHAProfileData, FetchRecordsOptions, HealthRecord, HealthFacilityData } from '../../types/m2/m2';
 import type { APIResponse } from '../../types/common';
 
 /**
@@ -10,14 +10,6 @@ export class M2Service {
   private http: HttpClient;
   private basePath = '/v3';
   private consentBasePath = '/v3/consent-requests';
-
-  /**
-   * Create a new session
-   * @returns Promise with session response containing access token
-   */
-  async createSession(): Promise<SessionResponse> {
-    return await this.http.post(`${this.basePath}/sessions`);
-  }
 
   /**
    * Create a new instance of M2Service
@@ -33,7 +25,7 @@ export class M2Service {
    * @returns Promise with the API response
    */
   async addUpdateHealthFacilityServices(data: HealthFacilityRequest): Promise<HealthFacilityResponse> {
-    const response = await this.http.post(`${this.basePath}/bridges/MutipleHRPAddUpdateServices`, data);
+    const response = await this.http.post<HealthFacilityData>(`${this.basePath}/bridges/MutipleHRPAddUpdateServices`, data);
     if (response.status === 'ERROR') {
       throw new Error('Failed to add/update health facility: ' + response.error?.message);
     }
@@ -46,7 +38,7 @@ export class M2Service {
    * @returns Promise with token response
    * @deprecated Token generation is now handled by the HttpClient using client credentials
    */
-  async generateToken(_data: GenerateTokenRequest): Promise<GenerateTokenResponse> {
+  async generateToken(_data: GenerateTokenRequest): Promise<APIResponse<GenerateTokenData>> {
     // In v3, authentication is handled by the HttpClient using client credentials
     const authToken = this.http.getAuthToken();
     if (!authToken) {
@@ -219,14 +211,13 @@ export class M2Service {
    */
   async searchABHAProfiles(criteria: string | Record<string, any>, token?: string): Promise<APIResponse<M2ABHAProfileData[]>> {
     if (typeof criteria === 'string' && token) {
-      return await this.http.get(`${this.basePath}/profile/search?query=${encodeURIComponent(criteria)}`, {
+      return this.http.get(`${this.basePath}/profile/search?query=${encodeURIComponent(criteria)}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
     }
     throw new Error('Invalid search criteria');
-  }
   }
 
   // ======================
@@ -245,7 +236,7 @@ export class M2Service {
    * @returns Promise with new tokens
    */
   async refreshToken(refreshToken: string): Promise<APIResponse<GenerateTokenData>> {
-    return await this.http.post(`${this.basePath}/token/refresh`, {
+    return this.http.post(`${this.basePath}/token/refresh`, {
       refreshToken,
     });
   }
@@ -337,33 +328,25 @@ export class M2Service {
    * @param options - Fetch options
    * @returns Promise with health records
    */
-  async fetchHealthRecords(
-    patientId: string,
-    token: string,
-    options: FetchRecordsOptions = {}
-  ): Promise<APIResponse<HealthRecordsResponse['data']>> {
+  async fetchHealthRecords(patientId: string, token: string, options?: FetchRecordsOptions): Promise<APIResponse<HealthRecordsResponse>> {
     const params: Record<string, string> = {
       patientId,
     };
 
-    if (options['fromDate']) params['fromDate'] = options['fromDate'];
-    if (options['toDate']) params['toDate'] = options['toDate'];
-    if (options['category']) params['category'] = options['category'];
-    if (options['type']) params['type'] = options['type'];
-    if (options['limit']) params['limit'] = options['limit'].toString();
-    if (options['offset']) params['offset'] = options['offset'].toString();
-    if (options['hiTypes']?.length) params['hiTypes'] = options['hiTypes'].join(',');
+    if (options?.['fromDate']) params['fromDate'] = options['fromDate'];
+    if (options?.['toDate']) params['toDate'] = options['toDate'];
+    if (options?.['hiTypes']) params['hiTypes'] = options['hiTypes'].join(',');
+    if (options?.['category']) params['category'] = options['category'];
+    if (options?.['type']) params['type'] = options['type'];
+    if (options?.['limit']) params['limit'] = options['limit'].toString();
+    if (options?.['offset']) params['offset'] = options['offset'].toString();
 
     const queryParams = new URLSearchParams(params);
-
-    return await this.http.get(
-      `${this.basePath}/health-records?${queryParams.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    return this.http.get<HealthRecordsResponse>(`${this.basePath}/health-records?${queryParams.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
   }
 
   /**
@@ -374,15 +357,14 @@ export class M2Service {
    * @returns Promise with success status
    */
   async shareHealthRecords(recordIds: string[], shareWith: string[], token: string): Promise<APIResponse<{ success: boolean }>> {
-    return await this.http.post(
-      `${this.basePath}/health-records/share`,
-      { recordIds, shareWith },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    return this.http.post(`${this.basePath}/health-records/share`, {
+      recordIds,
+      shareWith,
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
   }
 
   /**
@@ -392,14 +374,16 @@ export class M2Service {
    * @returns Promise with health record details
    */
   async getHealthRecord(recordId: string, token: string): Promise<APIResponse<HealthRecord>> {
-    const response = await this.http.get(`${this.basePath}/health-records/${recordId}`, {
+    const response = await this.http.get<HealthRecord>(`${this.basePath}/health-records/${recordId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
+
     if (response.status === 'ERROR') {
-      throw new Error(`Failed to get health record: ${response.error?.message}`);
+      throw new Error(response.error?.message || 'Failed to get health record');
     }
+
     return response;
   }
 

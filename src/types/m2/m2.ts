@@ -1,4 +1,4 @@
-import type { APIResponse, SessionResponse } from '../common';
+import type { APIResponse } from '../common';
 
 // Health Facility Types
 export interface HealthFacilityRequest {

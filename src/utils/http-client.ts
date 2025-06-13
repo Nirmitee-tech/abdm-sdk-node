@@ -48,28 +48,6 @@ export class HttpClient {
   private _keyId: string | null = null;
 
   /**
-   * Make a POST request with proper typing
-   * @param url - The URL to make the request to
-   * @param data - The request body data
-   * @param config - Optional request configuration
-   * @returns Promise with the API response
-   */
-  async post<T>(url: string, data: any, config?: AxiosRequestConfig): Promise<APIResponse<T>> {
-    try {
-      const response = await this.client.post(url, data, config);
-      return response.data as APIResponse<T>;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const requestId = (error.config as CustomAxiosRequestConfig)?.requestId || 'unknown';
-        logger.error(`[${requestId}] Axios error:`, error);
-        const responseData = error.response?.data as APIResponse<T>;
-        throw new Error(`API Error: ${responseData?.error?.message || error.message}`);
-      }
-      throw error;
-    }
-  }
-
-  /**
    * Get the current authentication token
    */
   public get authToken(): string | null {

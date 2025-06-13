@@ -2,12 +2,13 @@
   "compilerOptions": {
     /* Basic Options */
     "target": "es2020",
-    "module": "commonjs",
+    "module": "Node16",
     "lib": ["es2020"],
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
+    "isolatedModules": true,
 
     /* Strict Type-Checking */
     "strict": true,
@@ -26,8 +27,14 @@
     /* Module Resolution */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@": ["./src"]
     },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types"
+    ],
+    "types": ["node"],
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
 
