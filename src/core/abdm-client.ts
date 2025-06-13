@@ -1,7 +1,10 @@
 import { M1Service } from '../services/m1';
 import { M2Service } from '../services/m2';
 import { M3Service } from '../services/m3';
-import type { ABDMConfig } from '../types/common';
+import type { ABDMConfig, APIResponse } from '../types/common';
+import type { SessionRequest, GenerateOtpRequest, GenerateOtpResponse, CreateAbhaRequest, CreateAbhaResponse } from '../types/m1/m1';
+import type { HealthFacilityRequest, HealthFacilityResponse } from '../types/m2/m2';
+import type { HealthInformationResponse, ConsentStatusResponse, M3ConsentRequest } from '../types/m3/m3';
 import { HttpClient } from '../utils/http-client';
 
 /**
@@ -9,9 +12,9 @@ import { HttpClient } from '../utils/http-client';
  */
 export class ABDMClient {
   private http: HttpClient;
-  public m1: M1Service;
-  public m2: M2Service;
-  public m3: M3Service;
+  private m1: M1Service;
+  private m2: M2Service;
+  private m3: M3Service;
 
   /**
    * Create a new ABDM client
@@ -136,5 +139,44 @@ export class ABDMClient {
    */
   public async authenticate(): Promise<void> {
     await this.http.authenticate();
+  }
+
+  // M1 Service Methods
+  public async getSession(sessionRequest: SessionRequest): Promise<APIResponse<any>> {
+    return this.m1.getSession(sessionRequest);
+  }
+
+  public async generateOTP(generateOtpRequest: GenerateOtpRequest): Promise<APIResponse<GenerateOtpResponse>> {
+    return this.m1.generateOTP(generateOtpRequest);
+  }
+
+  public async createAbhaIdByAadhaar(createAbhaRequest: CreateAbhaRequest): Promise<APIResponse<CreateAbhaResponse>> {
+    return this.m1.createAbhaIdByAadhaar(createAbhaRequest);
+  }
+
+  public async getPublicKey(): Promise<APIResponse<{ key: string }>> {
+    return this.m1.getPublicKey();
+  }
+
+  // M2 Service Methods
+  public async addUpdateHealthFacilityServices(data: HealthFacilityRequest): Promise<HealthFacilityResponse> {
+    return this.m2.addUpdateHealthFacilityServices(data);
+  }
+
+  // M3 Service Methods
+  public async getHealthInformation(requestId: string, authToken: string): Promise<HealthInformationResponse> {
+    return this.m3.getHealthInformation(requestId, authToken);
+  }
+
+  public async getConsentStatus(consentRequestId: string, authToken: string): Promise<ConsentStatusResponse> {
+    return this.m3.getConsentStatus(consentRequestId, authToken);
+  }
+
+  public async requestConsent(consentRequest: M3ConsentRequest, authToken: string): Promise<{ requestId: string }> {
+    return this.m3.requestConsent(consentRequest, authToken);
+  }
+
+  public async revokeConsent(consentId: string, authToken: string): Promise<{ success: boolean }> {
+    return this.m3.revokeConsent(consentId, authToken);
   }
 }
