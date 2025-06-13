@@ -4,7 +4,7 @@ import type { HttpClient } from '../utils/http-client';
 export declare class M1Service {
     private readonly httpClient;
     constructor(httpClient: HttpClient);
-    getSession(sessionRequest: SessionRequest): Promise<APIResponse<SessionResponse>>;
+    getSession(_sessionRequest: SessionRequest): Promise<APIResponse<SessionResponse>>;
     sendAadhaarOTP(generateOtpRequest: GenerateOtpRequest): Promise<APIResponse<GenerateOtpResponse>>;
     createAbhaIdByAadhaar(createAbhaRequest: CreateAbhaRequest): Promise<APIResponse<CreateAbhaResponse>>;
     getPublicKey(): Promise<APIResponse<{

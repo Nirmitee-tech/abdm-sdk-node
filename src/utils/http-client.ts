@@ -20,6 +20,10 @@ interface AuthTokenResponse {
   accessToken: string;
   expiresIn: number;
   tokenType: string;
+  // Error fields for OAuth2 error responses
+  error?: string;
+  error_description?: string;
+  error_uri?: string;
 }
 
 // Define a type for the expected structure of ABDM API error responses
@@ -145,43 +149,114 @@ export class HttpClient {
       },
     });
 
-    // Add request interceptor for authentication
+    // Add request interceptor for authentication and logging
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         const internalConfig = config as CustomAxiosRequestConfig;
-        const authPathSegment = '/v0.5/sessions';
+        const authPathSegment = '/v3/auth/token';
+        const requestId = Math.random().toString(36).substring(2, 8);
+        internalConfig.requestId = requestId;
+        internalConfig.timestamp = Date.now();
+
+        // Log the request details
+        logger.debug(`[${requestId}] === REQUEST START ===`);
+        logger.debug(`[${requestId}] ${config.method?.toUpperCase()} ${config.url}`);
+        logger.debug(`[${requestId}] Headers:`, {
+          ...config.headers,
+          'Authorization': config.headers?.Authorization ? 'Bearer ***' : undefined,
+        });
+        
+        if (config.data) {
+          logger.debug(`[${requestId}] Request Data:`, config.data);
+        }
 
         // Skip auth for session creation requests
         if (internalConfig.url?.includes(authPathSegment)) {
+          logger.debug(`[${requestId}] Auth endpoint - skipping auth header`);
           return config;
         }
 
         let currentToken = internalConfig.authToken || this._authToken;
 
         // Check if token is expired
-        if (currentToken && this._tokenExpiry && new Date() >= this._tokenExpiry) {
-          currentToken = null;
+        if (currentToken && this._tokenExpiry) {
+          if (new Date() >= this._tokenExpiry) {
+            logger.debug(`[${requestId}] Token expired at ${this._tokenExpiry.toISOString()}`);
+            currentToken = null;
+          } else {
+            logger.debug(`[${requestId}] Using existing token (expires at ${this._tokenExpiry.toISOString()})`);
+          }
         }
 
         // Try to authenticate if no valid token
         if (!currentToken && this.config.clientId && this.config.clientSecret) {
+          logger.debug(`[${requestId}] No valid token - attempting to authenticate...`);
           try {
             await this.authenticate();
             currentToken = this._authToken;
+            logger.debug(`[${requestId}] Successfully authenticated`);
           } catch (error) {
-            logger.error('Failed to re-authenticate during request:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            logger.error(`[${requestId}] Failed to re-authenticate during request: ${errorMessage}`);
             // Continue without token, will fail with 401
           }
+        } else if (!currentToken) {
+          logger.debug(`[${requestId}] No credentials available for authentication`);
         }
 
         // Add Authorization header if we have a token
         if (currentToken) {
           internalConfig.headers.Authorization = `Bearer ${currentToken}`;
+          logger.debug(`[${requestId}] Added Authorization header`);
+        } else {
+          logger.debug(`[${requestId}] No Authorization header added`);
         }
 
         return config;
       },
       (error) => {
+        const requestId = (error.config as CustomAxiosRequestConfig)?.requestId || 'unknown';
+        logger.error(`[${requestId}] Request interceptor error:`, error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Add response interceptor for logging
+    this.client.interceptors.response.use(
+      (response) => {
+        const requestId = (response.config as CustomAxiosRequestConfig)?.requestId || 'unknown';
+        const duration = Date.now() - ((response.config as CustomAxiosRequestConfig)?.timestamp || 0);
+        
+        logger.debug(`[${requestId}] === RESPONSE RECEIVED (${duration}ms) ===`);
+        logger.debug(`[${requestId}] Status: ${response.status} ${response.statusText}`);
+        logger.debug(`[${requestId}] Headers:`, response.headers);
+        
+        if (response.data) {
+          logger.debug(`[${requestId}] Response Data:`, response.data);
+        }
+        
+        return response;
+      },
+      (error) => {
+        const requestId = (error.config as CustomAxiosRequestConfig)?.requestId || 'unknown';
+        const duration = error.config ? (Date.now() - ((error.config as CustomAxiosRequestConfig)?.timestamp || 0)) : 0;
+        
+        logger.error(`[${requestId}] === REQUEST FAILED (${duration}ms) ===`);
+        
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          logger.error(`[${requestId}] Error Status: ${error.response.status}`);
+          logger.error(`[${requestId}] Error Headers:`, error.response.headers);
+          logger.error(`[${requestId}] Error Data:`, error.response.data);
+        } else if (error.request) {
+          // The request was made but no response was received
+          logger.error(`[${requestId}] No response received:`, error.request);
+        } else {
+          // Something happened in setting up the request that triggered an Error
+          logger.error(`[${requestId}] Request setup error:`, error.message);
+        }
+        
         return Promise.reject(error);
       }
     );
@@ -191,24 +266,202 @@ export class HttpClient {
    * Authenticates with ABDM and stores the access token and its expiry.
    */
   public async authenticate(): Promise<void> {
+    const requestId = Math.random().toString(36).substring(2, 8);
+    
     if (!this.config.clientId || !this.config.clientSecret) {
-      throw new Error('Client ID and Client Secret are required for authentication.');
+      const error = new Error('Client ID and Client Secret are required for authentication');
+      logger.error(`[${requestId}] Authentication error:`, error);
+      throw error;
     }
-    try {
-      const authUrl = `${this.config.baseURL || ''}/v0.5/sessions`;
-      const authString = Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString('base64');
 
-      const response = await axios.post<AuthTokenResponse>(
-        authUrl,
-        { grantType: 'client_credentials' },
-        {
+    // Log the config being used for authentication
+    logger.debug(`[${requestId}] === AUTHENTICATION CONFIGURATION ===`);
+    logger.debug(`[${requestId}] Base URL: ${this.config.baseURL}`);
+    logger.debug(`[${requestId}] Auth Base URL: ${(this.config as any).authBaseURL || 'Not set, using baseURL'}`);
+    logger.debug(`[${requestId}] Sandbox Mode: ${this.config.useSandbox}`);
+    logger.debug(`[${requestId}] Client ID: ${this.config.clientId ? '*** (set)' : 'undefined'}`);
+    logger.debug(`[${requestId}] Client Secret: ${this.config.clientSecret ? '*** (set)' : 'undefined'}`);
+    logger.debug(`[${requestId}] X-CM-ID: ${(this.config as any).xcmId || 'sbx (default)'}`);
+
+    // Use the v3 authentication endpoint for ABDM
+    // Prefer authBaseURL if provided, otherwise fall back to baseURL
+    let authBaseURL = (this.config as any).authBaseURL || this.config.baseURL;
+    
+    // Ensure the base URL doesn't end with a slash to avoid double slashes
+    authBaseURL = authBaseURL.endsWith('/') ? authBaseURL.slice(0, -1) : authBaseURL;
+    
+    // Construct the authentication URL
+    const authUrl = `${authBaseURL}/v3/auth/token`;
+    logger.debug(`[${requestId}] Authentication Endpoint: ${authUrl}`);
+    
+    // Log environment variables for debugging
+    logger.debug(`[${requestId}] Environment Variables:`);
+    Object.entries(process.env)
+      .filter(([key]) => key.startsWith('ABHA_') || key === 'NODE_ENV')
+      .forEach(([key, value]) => {
+        const displayValue = key.includes('SECRET') || key.includes('KEY') 
+          ? '*** (set)' 
+          : value || 'undefined';
+        logger.debug(`[${requestId}]   ${key}=${displayValue}`);
+      });
+    
+    // Create Basic Auth header
+    const authString = Buffer.from(
+      `${this.config.clientId}:${this.config.clientSecret}`
+    ).toString('base64');
+
+    // Prepare form data for x-www-form-urlencoded
+    const params = new URLSearchParams();
+    params.append('grant_type', 'client_credentials');
+    params.append('client_id', this.config.clientId);
+    params.append('client_secret', this.config.clientSecret);
+
+    // Create a custom request config with our additional properties
+    const requestConfig: AxiosRequestConfig & { requestId?: string } = {
+      url: authUrl,
+      method: 'POST',
+      data: params.toString(),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${authString}`,
+        'X-CM-ID': (this.config as any).xcmId || 'sbx',
+      },
+      // Always resolve the promise so we can handle all status codes
+      validateStatus: () => true,
+      // Add timeout to prevent hanging
+      timeout: 30000, // Increased timeout to 30 seconds
+      // Add request ID for tracing
+      requestId,
+      // Enable request/response interception for detailed logging
+      transitional: {
+        silentJSONParsing: false,
+        forcedJSONParsing: false,
+        clarifyTimeoutError: true,
+      },
+    };
+
+    // Log the request details (with sensitive data masked)
+    logger.debug(`[${requestId}] === AUTHENTICATION REQUEST ===`);
+    logger.debug(`[${requestId}] URL: ${authUrl}`);
+    logger.debug(`[${requestId}] Method: ${requestConfig.method}`);
+    logger.debug(`[${requestId}] Headers:`, {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': 'Basic ***',
+      'X-CM-ID': (this.config as any).xcmId || 'sbx',
+    });
+    logger.debug(`[${requestId}] Body:`, params.toString());
+    logger.debug(`[${requestId}] Timeout: ${requestConfig.timeout}ms`);
+    
+    // Log the actual auth string for debugging (masked)
+    logger.debug(`[${requestId}] Auth String (first 10 chars): Basic ${authString.substring(0, 10)}...`);
+    
+    // Log the full URL being used for the request
+    logger.debug(`[${requestId}] Full Request URL: ${authUrl}`);
+    
+    // Log the environment variables for debugging
+    logger.debug(`[${requestId}] Environment Variables:`, {
+      NODE_ENV: process.env['NODE_ENV'],
+      ABHA_CLIENT_ID: process.env['ABHA_CLIENT_ID'] ? '***' : 'not set',
+      ABHA_CLIENT_SECRET: process.env['ABHA_CLIENT_SECRET'] ? '***' : 'not set',
+      LOG_LEVEL: process.env['LOG_LEVEL'] || 'info',
+      NODE_TLS_REJECT_UNAUTHORIZED: process.env['NODE_TLS_REJECT_UNAUTHORIZED'] || 'not set',
+    });
+
+    // Log the full request details (with sensitive data masked)
+    logger.debug('Sending authentication request:', {
+      url: authUrl,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ***',
+        'X-CM-ID': (this.config as any).xcmId || 'sbx',
+      },
+      data: 'grant_type=client_credentials&client_id=***&client_secret=***',
+      fullUrl: authUrl,
+      authHeader: `Basic ${authString.substring(0, 10)}...`
+    });
+
+    try {
+      logger.debug('Sending HTTP request to:', authUrl);
+      const startTime = Date.now();
+      const response = await axios.request<AuthTokenResponse>(requestConfig);
+      const duration = Date.now() - startTime;
+
+      // Log response details
+      const responseData = response.data || {};
+      const responseDetails = {
+        status: response.status,
+        statusText: response.statusText,
+        duration: `${duration}ms`,
+        headers: response.headers,
+        data: responseData,
+        config: {
+          url: response.config?.url,
+          method: response.config?.method,
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Basic ${authString}`,
-            'X-CM-ID': (this.config as any).xcmId || 'sbx',
+            ...response.config?.headers,
+            Authorization: '***',
           },
+        },
+      };
+      
+      logger.debug('Authentication response received:', responseDetails);
+
+      if (response.status !== 200) {
+        const errorDetails = {
+          status: response.status,
+          statusText: response.statusText,
+          error: responseData.error || 'Unknown error',
+          errorDescription: responseData.error_description || 'No error description provided',
+          timestamp: new Date().toISOString(),
+          request: {
+            url: response.config?.url,
+            method: response.config?.method,
+            headers: {
+              ...response.config?.headers,
+              Authorization: '***',
+            },
+          },
+          response: {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+            data: responseData,
+          },
+        };
+
+        // Log the full error details for debugging
+        logger.error('Authentication failed with status:', JSON.stringify(errorDetails, null, 2));
+        
+        // Provide more specific error messages based on the status code
+        let errorMessage = `Authentication failed with status ${response.status}`;
+        if (responseData.error_description) {
+          errorMessage += `: ${responseData.error_description}`;
+        } else if (responseData.error) {
+          errorMessage += `: ${responseData.error}`;
+        } else if (response.status === 401) {
+          errorMessage = 'Invalid client credentials or authentication failed. Please verify your client ID and secret.';
+        } else if (response.status === 400) {
+          errorMessage = 'Invalid request. Please check your request parameters';
+        } else if (response.status === 404) {
+          errorMessage = 'Authentication endpoint not found. Please check the base URL and authentication endpoint.';
+        } else if (response.status >= 500) {
+          errorMessage = 'Server error occurred while authenticating. Please try again later.';
+        } else {
+          // For any other status code, include the response data in the error message
+          errorMessage += `: ${JSON.stringify(responseData, null, 2)}`;
         }
-      );
+        
+        // Include the request URL in the error message for easier debugging
+        errorMessage += `\nRequest URL: ${response.config?.url}`;
+        
+        // Create a more detailed error object
+        const error = new Error(errorMessage);
+        (error as any).status = response.status;
+        (error as any).response = response;
+        
+        throw error;
+      }
 
       const { accessToken, expiresIn } = response.data;
       if (!accessToken) {
@@ -217,16 +470,34 @@ export class HttpClient {
 
       this._authToken = accessToken;
       this._tokenExpiry = new Date(Date.now() + (expiresIn - 300) * 1000);
+      
+      logger.info('Successfully authenticated with ABDM API');
     } catch (error: unknown) {
       let errorMessage: string;
       if (axios.isAxiosError(error)) {
-        errorMessage = error.response?.data?.error?.message || error.message || 'Unknown authentication error';
+        const responseData = error.response?.data || {};
+        errorMessage = responseData.error?.message || 
+                      responseData.message || 
+                      error.message || 
+                      'Unknown authentication error';
+        
+        logger.error('ABDM Authentication Error:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: responseData,
+          headers: error.config?.headers ? {
+            ...error.config.headers,
+            'X-HIU-ID': '***',
+            'X-HIU-Client-Key': '***',
+            'Content-Type': error.config.headers['Content-Type']
+          } : {}
+        });
       } else if (error instanceof Error) {
         errorMessage = error.message;
       } else {
         errorMessage = 'An unexpected error occurred during authentication.';
       }
-      logger.error('ABDM Authentication Error:', error);
+      logger.error('Authentication failed:', errorMessage);
       throw new Error(`Authentication failed: ${errorMessage}`);
     }
   }
@@ -266,6 +537,21 @@ export class HttpClient {
    * @returns A standardized APIResponse object.
    */
   private async request<T>(config: AxiosRequestConfig): Promise<APIResponse<T>> {
+    const requestId = Math.random().toString(36).substring(2, 8);
+    const startTime = Date.now();
+    
+    // Log the request details
+    logger.debug(`[${requestId}] === STARTING REQUEST ===`);
+    logger.debug(`[${requestId}] ${config.method?.toUpperCase() || 'GET'} ${config.url}`);
+    logger.debug(`[${requestId}] Headers:`, {
+      ...config.headers,
+      Authorization: config.headers?.Authorization ? 'Bearer ***' : undefined,
+    });
+    
+    if (config.data) {
+      logger.debug(`[${requestId}] Request Data:`, config.data);
+    }
+    
     try {
       const response = await this.client.request<APIResponse<T>>({
         ...config,
@@ -275,10 +561,38 @@ export class HttpClient {
           'X-Timestamp': new Date().toISOString(),
         },
       });
+      
+      const duration = Date.now() - startTime;
+      logger.debug(`[${requestId}] === REQUEST COMPLETED (${duration}ms) ===`);
+      logger.debug(`[${requestId}] Status: ${response.status} ${response.statusText}`);
+      
+      if (response.data) {
+        logger.debug(`[${requestId}] Response Data:`, response.data);
+      }
+      
       return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        throw this.normalizeError(error);
+      const duration = Date.now() - startTime;
+      const axiosError = error as AxiosError<APIResponse<T>>;
+      
+      logger.error(`[${requestId}] === REQUEST FAILED (${duration}ms) ===`);
+      
+      if (axiosError.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        logger.error(`[${requestId}] Error Status: ${axiosError.response.status}`);
+        logger.error(`[${requestId}] Error Headers:`, axiosError.response.headers);
+        logger.error(`[${requestId}] Error Data:`, axiosError.response.data);
+      } else if (axiosError.request) {
+        // The request was made but no response was received
+        logger.error(`[${requestId}] No response received:`, axiosError.request);
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        logger.error(`[${requestId}] Request setup error:`, axiosError.message);
+      }
+      
+      if (axios.isAxiosError(axiosError)) {
+        throw this.normalizeError(axiosError);
       }
       throw error;
     }

@@ -7,8 +7,9 @@ export interface M3SessionRequest {
 export interface M3SessionResponse {
   accessToken: string;
   expiresIn: number;
-  refreshToken: string;
   tokenType: string;
+  // Optional since client credentials flow doesn't return a refresh token
+  refreshToken?: string;
 }
 
 export interface BridgeServiceRegistrationRequest {

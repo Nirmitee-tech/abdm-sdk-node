@@ -31,10 +31,22 @@ class ABDMClient {
         }
         // Set default values if not provided
         const effectiveConfig = {
-            baseURL: 'https://dev.abdm.gov.in/gateway',
             useSandbox: true,
             ...config,
         };
+        // Set the baseURL based on the environment
+        if (!effectiveConfig.baseURL) {
+            effectiveConfig.baseURL = effectiveConfig.useSandbox
+                ? 'https://dev.abdm.gov.in/gateway'
+                : 'https://healthid.ndhm.gov.in/api';
+        }
+        // Set the authBaseURL specifically for authentication
+        // For sandbox, use the gateway URL without the /v3 suffix
+        if (!effectiveConfig.authBaseURL) {
+            effectiveConfig.authBaseURL = effectiveConfig.useSandbox
+                ? 'https://dev.abdm.gov.in/gateway'
+                : 'https://healthid.ndhm.gov.in/api';
+        }
         this.http = new http_client_1.HttpClient(effectiveConfig);
         this.m1 = new m1_service_1.M1Service(this.http);
         this.m2 = new m2_service_1.M2Service(this.http);
@@ -91,7 +103,7 @@ class ABDMClient {
         // Check if the token is expired
         // tokenExpiry is already a Date object, so we can compare directly
         const now = new Date();
-        // Debug log for test
+        // Only log token refresh in non-test environments
         if (process.env['NODE_ENV'] === 'test') {
             // eslint-disable-next-line no-console
             process.stdout.write(`[isTokenValid] now: ${now.getTime()}, tokenExpiry: ${tokenExpiry?.getTime()}\n`);

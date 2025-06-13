@@ -23,8 +23,9 @@ export declare class M2Service {
      * Generate a token for ABHA profile access
      * @param data - Token generation request data
      * @returns Promise with token response
+     * @deprecated Token generation is now handled by the HttpClient using client credentials
      */
-    generateToken(data: GenerateTokenRequest): Promise<GenerateTokenResponse['data']>;
+    generateToken(_data: GenerateTokenRequest): Promise<GenerateTokenResponse['data']>;
     /**
      * Get ABHA profile information
      * @param token - Authentication token

@@ -6,12 +6,12 @@ export interface SessionRequest {
 export interface SessionResponse {
     accessToken: string;
     expiresIn: number;
-    refreshExpiresIn: number;
-    refreshToken: string;
     tokenType: string;
-    'not-before-policy': number;
-    session_state: string;
-    scope: string;
+    refreshExpiresIn?: number;
+    refreshToken?: string;
+    'not-before-policy'?: number;
+    session_state?: string;
+    scope?: string;
 }
 export interface GenerateOtpRequest {
     loginId: string;

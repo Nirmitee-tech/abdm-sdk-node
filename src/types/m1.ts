@@ -8,12 +8,13 @@ export interface SessionRequest {
 export interface SessionResponse {
   accessToken: string;
   expiresIn: number;
-  refreshExpiresIn: number;
-  refreshToken: string;
   tokenType: string;
-  'not-before-policy': number;
-  session_state: string;
-  scope: string;
+  // Optional fields that might be present in different auth flows
+  refreshExpiresIn?: number;
+  refreshToken?: string;
+  'not-before-policy'?: number;
+  session_state?: string;
+  scope?: string;
 }
 
 // --- Aadhaar Based ABHA Enrollment ---

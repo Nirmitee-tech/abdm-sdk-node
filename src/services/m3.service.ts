@@ -1,5 +1,4 @@
 import type {
-  M3SessionRequest,
   M3SessionResponse,
   BridgeServiceRegistrationRequest,
   BridgeServiceResponse,
@@ -18,8 +17,8 @@ import type { HttpClient } from '../utils/http-client';
 export class M3Service {
   private http: HttpClient;
   private basePath = '/v3';
-  private hiuBasePath = '/v0.5/consent-requests';
-  private healthInfoBasePath = '/v0.5/health-information';
+  private hiuBasePath = '/v3/consent-requests';
+  private healthInfoBasePath = '/v3/health-information';
 
   /**
    * Create a new instance of M3Service
@@ -38,21 +37,20 @@ export class M3Service {
    * @param clientId - Client ID
    * @param clientSecret - Client secret
    * @returns Promise with session details
+   * @deprecated Sessions are now managed automatically by the HttpClient
    */
-  async createSession(clientId: string, clientSecret: string): Promise<M3SessionResponse> {
-    const data: M3SessionRequest = {
-      clientId,
-      clientSecret,
-      grantType: 'client_credentials',
-    };
-
-    const response = await this.http.post<M3SessionResponse>(`${this.basePath}/sessions`, data);
-
-    if (response.status >= 400 || !response.data) {
-      throw new Error('Failed to create session');
+  async createSession(_clientId: string, _clientSecret: string): Promise<M3SessionResponse> {
+    // In v3, authentication is handled by the HttpClient using client credentials
+    const authToken = this.http.getAuthToken();
+    if (!authToken) {
+      throw new Error('Authentication token not available. Please authenticate first.');
     }
-
-    return response.data;
+    
+    return {
+      accessToken: authToken,
+      tokenType: 'bearer',
+      expiresIn: 300 // Default expiration time in seconds
+    };
   }
 
   // ======================

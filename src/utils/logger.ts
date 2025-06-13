@@ -15,7 +15,7 @@ if (!fs.existsSync(logDir)) {
 
 // Safely get log level from environment
 const getLogLevel = (): LogLevel => {
-  const level = process.env.LOG_LEVEL?.toLowerCase() as LogLevel | undefined;
+  const level = process.env['LOG_LEVEL']?.toLowerCase() as LogLevel | undefined;
   const validLevels: LogLevel[] = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'];
 
   if (level && validLevels.includes(level)) {
@@ -26,31 +26,47 @@ const getLogLevel = (): LogLevel => {
 
 const logLevel = getLogLevel();
 
-// Create a logger instance
+// Create a simple console logger with pretty print for development
 const logger: Logger = pino({
   level: logLevel,
   transport: {
-    targets: [
-      {
-        target: 'pino-pretty',
-        level: logLevel,
-        options: {
-          colorize: true,
-          translateTime: 'SYS:standard',
-          ignore: 'pid,hostname',
-        },
-      },
-      {
-        target: 'pino/file',
-        level: 'trace', // Log everything to file
-        options: {
-          destination: path.join(logDir, 'abdm-sdk.log'),
-          mkdir: true,
-        },
-      },
-    ],
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'SYS:standard',
+      ignore: 'pid,hostname',
+      levelFirst: true,
+      singleLine: true,
+      sync: true,
+    },
   },
 });
+
+// Also log to file in production
+if (process.env['NODE_ENV'] === 'production') {
+  // Log to file in production
+  const fileTransport = pino.transport({
+    target: 'pino/file',
+    options: {
+      destination: path.join(logDir, 'abdm-sdk.log'),
+      mkdir: true,
+    },
+  });
+  
+  // Log file path for reference
+  logger.info('Logging to file:', path.join(logDir, 'abdm-sdk.log'));
+  
+  // Use the file transport
+  logger.info = fileTransport.info.bind(fileTransport);
+  logger.error = fileTransport.error.bind(fileTransport);
+  logger.warn = fileTransport.warn.bind(fileTransport);
+  logger.debug = fileTransport.debug.bind(fileTransport);
+}
+
+// Enable debug logging if LOG_LEVEL is set to debug
+if (logLevel === 'debug') {
+  logger.debug('Debug logging enabled');
+}
 
 export { logger };
 

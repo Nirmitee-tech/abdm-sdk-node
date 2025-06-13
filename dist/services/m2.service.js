@@ -11,8 +11,8 @@ class M2Service {
      * @param http - An instance of HttpClient for making API requests
      */
     constructor(http) {
-        this.basePath = '/v1';
-        this.consentBasePath = '/v0.5/consent-requests';
+        this.basePath = '/v3';
+        this.consentBasePath = '/v3/consent-requests';
         // Alias for backward compatibility
         this.getABHALinkedAddresses = this.getLinkedAddresses;
         this.http = http;
@@ -33,13 +33,21 @@ class M2Service {
      * Generate a token for ABHA profile access
      * @param data - Token generation request data
      * @returns Promise with token response
+     * @deprecated Token generation is now handled by the HttpClient using client credentials
      */
-    async generateToken(data) {
-        const response = await this.http.post(`${this.basePath}/hip/token/generate-token`, data);
-        if (response.status >= 400 || !response.data) {
-            throw new Error('Failed to generate token');
+    async generateToken(_data) {
+        // In v3, authentication is handled by the HttpClient using client credentials
+        const authToken = this.http.getAuthToken();
+        if (!authToken) {
+            throw new Error('Authentication token not available. Please authenticate first.');
         }
-        return response.data;
+        // Return a mock response with the current token
+        return {
+            token: authToken,
+            expiresIn: 300, // Default expiration time in seconds
+            refreshToken: '', // Not used in client credentials flow
+            refreshExpiresIn: 0 // Not used in client credentials flow
+        };
     }
     /**
      * Get ABHA profile information

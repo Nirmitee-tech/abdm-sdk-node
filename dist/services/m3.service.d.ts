@@ -19,8 +19,9 @@ export declare class M3Service {
      * @param clientId - Client ID
      * @param clientSecret - Client secret
      * @returns Promise with session details
+     * @deprecated Sessions are now managed automatically by the HttpClient
      */
-    createSession(clientId: string, clientSecret: string): Promise<M3SessionResponse>;
+    createSession(_clientId: string, _clientSecret: string): Promise<M3SessionResponse>;
     /**
      * Update bridge URL
      * @param bridgeId - Bridge ID

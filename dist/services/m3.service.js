@@ -12,8 +12,8 @@ class M3Service {
      */
     constructor(http) {
         this.basePath = '/v3';
-        this.hiuBasePath = '/v0.5/consent-requests';
-        this.healthInfoBasePath = '/v0.5/health-information';
+        this.hiuBasePath = '/v3/consent-requests';
+        this.healthInfoBasePath = '/v3/health-information';
         this.http = http;
     }
     // ======================
@@ -24,18 +24,19 @@ class M3Service {
      * @param clientId - Client ID
      * @param clientSecret - Client secret
      * @returns Promise with session details
+     * @deprecated Sessions are now managed automatically by the HttpClient
      */
-    async createSession(clientId, clientSecret) {
-        const data = {
-            clientId,
-            clientSecret,
-            grantType: 'client_credentials',
-        };
-        const response = await this.http.post(`${this.basePath}/sessions`, data);
-        if (response.status >= 400 || !response.data) {
-            throw new Error('Failed to create session');
+    async createSession(_clientId, _clientSecret) {
+        // In v3, authentication is handled by the HttpClient using client credentials
+        const authToken = this.http.getAuthToken();
+        if (!authToken) {
+            throw new Error('Authentication token not available. Please authenticate first.');
         }
-        return response.data;
+        return {
+            accessToken: authToken,
+            tokenType: 'bearer',
+            expiresIn: 300 // Default expiration time in seconds
+        };
     }
     // ======================
     // Bridge Service Management

@@ -26,6 +26,8 @@ export interface ABDMAuthConfig {
 export interface HTTPClientConfig {
     /** Base URL for API requests */
     baseURL?: string;
+    /** Base URL for authentication requests (defaults to baseURL if not provided) */
+    authBaseURL?: string;
     /** Custom headers to include in requests */
     headers?: Record<string, string>;
     /** Request timeout in milliseconds */

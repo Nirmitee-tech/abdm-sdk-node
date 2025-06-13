@@ -18,8 +18,8 @@ import type { HttpClient } from '../utils/http-client';
  */
 export class M2Service {
   private http: HttpClient;
-  private basePath = '/v1';
-  private consentBasePath = '/v0.5/consent-requests';
+  private basePath = '/v3';
+  private consentBasePath = '/v3/consent-requests';
 
   /**
    * Create a new instance of M2Service
@@ -49,16 +49,22 @@ export class M2Service {
    * Generate a token for ABHA profile access
    * @param data - Token generation request data
    * @returns Promise with token response
+   * @deprecated Token generation is now handled by the HttpClient using client credentials
    */
-  async generateToken(data: GenerateTokenRequest): Promise<GenerateTokenResponse['data']> {
-    const response = await this.http.post<GenerateTokenResponse['data']>(
-      `${this.basePath}/hip/token/generate-token`,
-      data
-    );
-    if (response.status >= 400 || !response.data) {
-      throw new Error('Failed to generate token');
+  async generateToken(_data: GenerateTokenRequest): Promise<GenerateTokenResponse['data']> {
+    // In v3, authentication is handled by the HttpClient using client credentials
+    const authToken = this.http.getAuthToken();
+    if (!authToken) {
+      throw new Error('Authentication token not available. Please authenticate first.');
     }
-    return response.data;
+    
+    // Return a mock response with the current token
+    return {
+      token: authToken,
+      expiresIn: 300, // Default expiration time in seconds
+      refreshToken: '', // Not used in client credentials flow
+      refreshExpiresIn: 0 // Not used in client credentials flow
+    };
   }
 
   /**
@@ -436,13 +442,13 @@ export class M2Service {
       patientId,
     };
 
-    if (options.fromDate) params.fromDate = options.fromDate;
-    if (options.toDate) params.toDate = options.toDate;
-    if (options.category) params.category = options.category;
-    if (options.type) params.type = options.type;
-    if (options.limit) params.limit = options.limit.toString();
-    if (options.offset) params.offset = options.offset.toString();
-    if (options.hiTypes?.length) params.hiTypes = options.hiTypes.join(',');
+    if (options['fromDate']) params['fromDate'] = options['fromDate'];
+    if (options['toDate']) params['toDate'] = options['toDate'];
+    if (options['category']) params['category'] = options['category'];
+    if (options['type']) params['type'] = options['type'];
+    if (options['limit']) params['limit'] = options['limit'].toString();
+    if (options['offset']) params['offset'] = options['offset'].toString();
+    if (options['hiTypes']?.length) params['hiTypes'] = options['hiTypes'].join(',');
 
     const queryParams = new URLSearchParams(params);
 

@@ -20,31 +20,43 @@ const getLogLevel = () => {
     return 'info';
 };
 const logLevel = getLogLevel();
-// Create a logger instance
+// Create a simple console logger with pretty print for development
 const logger = (0, pino_1.default)({
     level: logLevel,
     transport: {
-        targets: [
-            {
-                target: 'pino-pretty',
-                level: logLevel,
-                options: {
-                    colorize: true,
-                    translateTime: 'SYS:standard',
-                    ignore: 'pid,hostname',
-                },
-            },
-            {
-                target: 'pino/file',
-                level: 'trace', // Log everything to file
-                options: {
-                    destination: path_1.default.join(logDir, 'abdm-sdk.log'),
-                    mkdir: true,
-                },
-            },
-        ],
+        target: 'pino-pretty',
+        options: {
+            colorize: true,
+            translateTime: 'SYS:standard',
+            ignore: 'pid,hostname',
+            levelFirst: true,
+            singleLine: true,
+            sync: true,
+        },
     },
 });
 exports.logger = logger;
+// Also log to file in production
+if (process.env['NODE_ENV'] === 'production') {
+    // Log to file in production
+    const fileTransport = pino_1.default.transport({
+        target: 'pino/file',
+        options: {
+            destination: path_1.default.join(logDir, 'abdm-sdk.log'),
+            mkdir: true,
+        },
+    });
+    // Log file path for reference
+    logger.info('Logging to file:', path_1.default.join(logDir, 'abdm-sdk.log'));
+    // Use the file transport
+    logger.info = fileTransport.info.bind(fileTransport);
+    logger.error = fileTransport.error.bind(fileTransport);
+    logger.warn = fileTransport.warn.bind(fileTransport);
+    logger.debug = fileTransport.debug.bind(fileTransport);
+}
+// Enable debug logging if LOG_LEVEL is set to debug
+if (logLevel === 'debug') {
+    logger.debug('Debug logging enabled');
+}
 exports.default = logger;
 //# sourceMappingURL=logger.js.map
