@@ -1,2 +1,2 @@
 export * from './abdm-client';
-export * from './common';
+export * from '@/core/common';

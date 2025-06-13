@@ -45,8 +45,8 @@ export class ABDMClient {
     };
 
     // Set the baseURL based on the environment
-    if (!effectiveConfig.baseURL) {
-      effectiveConfig.baseURL = effectiveConfig.useSandbox 
+    if (!effectiveConfig.baseUrl) {
+      effectiveConfig.baseUrl = effectiveConfig.useSandbox 
         ? 'https://dev.abdm.gov.in/gateway' 
         : 'https://healthid.ndhm.gov.in/api';
     }
