@@ -48,6 +48,28 @@ export class HttpClient {
   private _keyId: string | null = null;
 
   /**
+   * Make a POST request with proper typing
+   * @param url - The URL to make the request to
+   * @param data - The request body data
+   * @param config - Optional request configuration
+   * @returns Promise with the API response
+   */
+  async post<T>(url: string, data: any, config?: AxiosRequestConfig): Promise<APIResponse<T>> {
+    try {
+      const response = await this.client.post(url, data, config);
+      return response.data as APIResponse<T>;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const requestId = (error.config as CustomAxiosRequestConfig)?.requestId || 'unknown';
+        logger.error(`[${requestId}] Axios error:`, error);
+        const responseData = error.response?.data as APIResponse<T>;
+        throw new Error(`API Error: ${responseData?.error?.message || error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Get the current authentication token
    */
   public get authToken(): string | null {
@@ -134,13 +156,13 @@ export class HttpClient {
   constructor(config: ABDMConfig) {
     this.config = {
       ...config,
-      baseURL: config.baseURL || 'https://dev.abdm.gov.in/gateway',
+      baseUrl: config.baseUrl || 'https://dev.abdm.gov.in/gateway',
       useSandbox: config.useSandbox !== false, // Default to true
       timeout: config.timeout || 30000,
     };
 
     this.client = axios.create({
-      baseURL: this.config.baseURL,
+      baseURL: this.config.baseUrl,
       timeout: this.config.timeout,
       headers: {
         'Content-Type': 'application/json',
@@ -276,16 +298,16 @@ export class HttpClient {
 
     // Log the config being used for authentication
     logger.debug(`[${requestId}] === AUTHENTICATION CONFIGURATION ===`);
-    logger.debug(`[${requestId}] Base URL: ${this.config.baseURL}`);
-    logger.debug(`[${requestId}] Auth Base URL: ${(this.config as any).authBaseURL || 'Not set, using baseURL'}`);
+    logger.debug(`[${requestId}] Base URL: ${this.config.baseUrl}`);
     logger.debug(`[${requestId}] Sandbox Mode: ${this.config.useSandbox}`);
+    logger.debug(`[${requestId}] Timeout: ${this.config.timeout}ms`);
     logger.debug(`[${requestId}] Client ID: ${this.config.clientId ? '*** (set)' : 'undefined'}`);
     logger.debug(`[${requestId}] Client Secret: ${this.config.clientSecret ? '*** (set)' : 'undefined'}`);
     logger.debug(`[${requestId}] X-CM-ID: ${(this.config as any).xcmId || 'sbx (default)'}`);
 
     // Use the v3 authentication endpoint for ABDM
-    // Prefer authBaseURL if provided, otherwise fall back to baseURL
-    let authBaseURL = (this.config as any).authBaseURL || this.config.baseURL;
+    // Prefer authBaseURL if provided, otherwise fall back to baseUrl
+    let authBaseURL = (this.config as any).authBaseURL || this.config.baseUrl;
     
     // Ensure the base URL doesn't end with a slash to avoid double slashes
     authBaseURL = authBaseURL.endsWith('/') ? authBaseURL.slice(0, -1) : authBaseURL;

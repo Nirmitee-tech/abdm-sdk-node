@@ -2,9 +2,14 @@
  * Core types for the ABDM SDK
  */
 
+// Common types
 export * from './common';
-// ABHA specific types are currently co-located in m1.ts or other relevant modules.
-// export * from './abha'; // Removed as abha.ts does not exist as a separate type module.
-export * from './m1';
-export * from './m2';
-export * from './m3';
+
+// ABHA specific types
+export * from './m1/index';
+
+// Health Facility types
+export * from './m2/index';
+
+// Bridge Service types
+export * from './m3/index';

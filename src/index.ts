@@ -1,9 +1,10 @@
-export * from './abdm-client';
-export * from './services/m1.service';
-export * from './services/m2.service';
-export * from './services/m3.service';
-export * from './types';
+export * from './core';
+export * from './services';
+export * from './utils';
+
+// Types
+export type { ABDMConfig, APIResponse } from './types';
 
 // Default export for CommonJS/ESM compatibility
-import { ABDMClient } from './abdm-client';
+import { ABDMClient } from './core/abdm-client';
 export default ABDMClient;

@@ -87,12 +87,12 @@ class HttpClient {
         this._keyId = null;
         this.config = {
             ...config,
-            baseURL: config.baseURL || 'https://dev.abdm.gov.in/gateway',
+            baseUrl: config.baseUrl || 'https://dev.abdm.gov.in/gateway',
             useSandbox: config.useSandbox !== false, // Default to true
             timeout: config.timeout || 30000,
         };
         this.client = axios_1.default.create({
-            baseURL: this.config.baseURL,
+            baseURL: this.config.baseUrl,
             timeout: this.config.timeout,
             headers: {
                 'Content-Type': 'application/json',
@@ -209,15 +209,15 @@ class HttpClient {
         }
         // Log the config being used for authentication
         logger_1.logger.debug(`[${requestId}] === AUTHENTICATION CONFIGURATION ===`);
-        logger_1.logger.debug(`[${requestId}] Base URL: ${this.config.baseURL}`);
-        logger_1.logger.debug(`[${requestId}] Auth Base URL: ${this.config.authBaseURL || 'Not set, using baseURL'}`);
+        logger_1.logger.debug(`[${requestId}] Base URL: ${this.config.baseUrl}`);
         logger_1.logger.debug(`[${requestId}] Sandbox Mode: ${this.config.useSandbox}`);
+        logger_1.logger.debug(`[${requestId}] Timeout: ${this.config.timeout}ms`);
         logger_1.logger.debug(`[${requestId}] Client ID: ${this.config.clientId ? '*** (set)' : 'undefined'}`);
         logger_1.logger.debug(`[${requestId}] Client Secret: ${this.config.clientSecret ? '*** (set)' : 'undefined'}`);
         logger_1.logger.debug(`[${requestId}] X-CM-ID: ${this.config.xcmId || 'sbx (default)'}`);
         // Use the v3 authentication endpoint for ABDM
-        // Prefer authBaseURL if provided, otherwise fall back to baseURL
-        let authBaseURL = this.config.authBaseURL || this.config.baseURL;
+        // Prefer authBaseURL if provided, otherwise fall back to baseUrl
+        let authBaseURL = this.config.authBaseURL || this.config.baseUrl;
         // Ensure the base URL doesn't end with a slash to avoid double slashes
         authBaseURL = authBaseURL.endsWith('/') ? authBaseURL.slice(0, -1) : authBaseURL;
         // Construct the authentication URL
