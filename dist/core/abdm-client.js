@@ -38,15 +38,8 @@ class ABDMClient {
         // Set the baseURL based on the environment
         if (!effectiveConfig.baseUrl) {
             effectiveConfig.baseUrl = effectiveConfig.useSandbox
-                ? 'https://dev.abdm.gov.in/gateway'
-                : 'https://healthid.ndhm.gov.in/api';
-        }
-        // Set the authBaseURL specifically for authentication
-        // For sandbox, use the gateway URL without the /v3 suffix
-        if (!effectiveConfig.authBaseURL) {
-            effectiveConfig.authBaseURL = effectiveConfig.useSandbox
-                ? 'https://dev.abdm.gov.in/gateway'
-                : 'https://healthid.ndhm.gov.in/api';
+                ? 'https://dev.abdm.gov.in'
+                : 'https://healthid.ndhm.gov.in';
         }
         this.http = new http_client_1.HttpClient(effectiveConfig);
         this.m1 = new m1_1.M1Service(this.http);

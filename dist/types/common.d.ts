@@ -34,9 +34,9 @@ export interface ABDMAuthConfig {
 }
 export interface ABDMConfig {
     baseUrl: string;
-    authBaseURL?: string;
     clientId: string;
     clientSecret: string;
+    xcmId?: string;
     timeout?: number;
     headers?: Record<string, string>;
     useSandbox?: boolean;

@@ -58,9 +58,11 @@ export declare class HttpClient {
     set keyId(keyId: string);
     constructor(config: ABDMConfig);
     /**
-     * Authenticates with ABDM and stores the access token and its expiry.
+     * Authenticates with ABDM and returns the access token.
+     * @param retryCount Number of times to retry on 202 Accepted (default: 3)
+     * @param retryDelay Delay between retries in milliseconds (default: 1000)
      */
-    authenticate(): Promise<void>;
+    authenticate(retryCount?: number, retryDelay?: number): Promise<string>;
     /**
      * Encrypts data using the ABDM public key.
      * @param data The string data to encrypt.

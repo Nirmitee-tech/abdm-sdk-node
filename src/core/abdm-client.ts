@@ -47,16 +47,8 @@ export class ABDMClient {
     // Set the baseURL based on the environment
     if (!effectiveConfig.baseUrl) {
       effectiveConfig.baseUrl = effectiveConfig.useSandbox 
-        ? 'https://dev.abdm.gov.in/gateway' 
-        : 'https://healthid.ndhm.gov.in/api';
-    }
-    
-    // Set the authBaseURL specifically for authentication
-    // For sandbox, use the gateway URL without the /v3 suffix
-    if (!effectiveConfig.authBaseURL) {
-      effectiveConfig.authBaseURL = effectiveConfig.useSandbox
-        ? 'https://dev.abdm.gov.in/gateway'
-        : 'https://healthid.ndhm.gov.in/api';
+        ? 'https://dev.abdm.gov.in' 
+        : 'https://healthid.ndhm.gov.in';
     }
 
     this.http = new HttpClient(effectiveConfig);
@@ -142,9 +134,6 @@ export class ABDMClient {
   }
 
   // M1 Service Methods
-  public async getSession(sessionRequest: SessionRequest): Promise<APIResponse<any>> {
-    return this.m1.getSession(sessionRequest);
-  }
 
   public async generateOTP(generateOtpRequest: GenerateOtpRequest): Promise<APIResponse<GenerateOtpResponse>> {
     return this.m1.generateOTP(generateOtpRequest);

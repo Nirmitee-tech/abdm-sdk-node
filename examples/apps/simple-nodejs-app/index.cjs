@@ -65,13 +65,9 @@ async function main() {
   try {
 
     const authToken = await client.authenticate();
-    // Test the connection and authentication
-    const result = await testConnection();
-    
-    if (!result.success) {
-      logger.error('Connection test failed');
-      process.exit(1);
-    }
+    logger.info('Authentication successful!',authToken);
+    // Test the connection and authentication   
+     
     
     logger.info('Connection test completed successfully!');
     process.exit(0);

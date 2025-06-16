@@ -16,14 +16,13 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   retryCount?: number;
 }
 
-interface AuthTokenResponse {
+// Define interfaces for API responses
+interface AuthResponse {
   accessToken: string;
   expiresIn: number;
+  refreshExpiresIn: number;
+  refreshToken: string;
   tokenType: string;
-  // Error fields for OAuth2 error responses
-  error?: string;
-  error_description?: string;
-  error_uri?: string;
 }
 
 // Define a type for the expected structure of ABDM API error responses
@@ -153,7 +152,6 @@ export class HttpClient {
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         const internalConfig = config as CustomAxiosRequestConfig;
-        const authPathSegment = '/v3/auth/token';
         const requestId = Math.random().toString(36).substring(2, 8);
         internalConfig.requestId = requestId;
         internalConfig.timestamp = Date.now();
@@ -171,7 +169,7 @@ export class HttpClient {
         }
 
         // Skip auth for session creation requests
-        if (internalConfig.url?.includes(authPathSegment)) {
+        if (internalConfig.url?.includes('/hiecm/gateway/v3/sessions')) {
           logger.debug(`[${requestId}] Auth endpoint - skipping auth header`);
           return config;
         }
@@ -263,14 +261,17 @@ export class HttpClient {
   }
 
   /**
-   * Authenticates with ABDM and stores the access token and its expiry.
+   * Authenticates with ABDM and returns the access token.
+   * @param retryCount Number of times to retry on 202 Accepted (default: 3)
+   * @param retryDelay Delay between retries in milliseconds (default: 1000)
    */
-  public async authenticate(): Promise<void> {
+  public async authenticate(retryCount = 3, retryDelay = 1000): Promise<string> {
     const requestId = Math.random().toString(36).substring(2, 8);
+    const startTime = Date.now();
     
     if (!this.config.clientId || !this.config.clientSecret) {
       const error = new Error('Client ID and Client Secret are required for authentication');
-      logger.error(`[${requestId}] Authentication error:`, error);
+      logger.error(`[${requestId}] Authentication error: ${error.message}`);
       throw error;
     }
 
@@ -278,228 +279,261 @@ export class HttpClient {
     logger.debug(`[${requestId}] === AUTHENTICATION CONFIGURATION ===`);
     logger.debug(`[${requestId}] Base URL: ${this.config.baseUrl}`);
     logger.debug(`[${requestId}] Sandbox Mode: ${this.config.useSandbox}`);
-    logger.debug(`[${requestId}] Timeout: ${this.config.timeout}ms`);
+    logger.debug(`[${requestId}] Timeout: ${this.config.timeout || 30000}ms`);
     logger.debug(`[${requestId}] Client ID: ${this.config.clientId ? '*** (set)' : 'undefined'}`);
     logger.debug(`[${requestId}] Client Secret: ${this.config.clientSecret ? '*** (set)' : 'undefined'}`);
-    logger.debug(`[${requestId}] X-CM-ID: ${(this.config as any).xcmId || 'sbx (default)'}`);
+    logger.debug(`[${requestId}] X-CM-ID: ${this.config.xcmId || 'sbx (default)'}`);
 
-    // Use the v3 authentication endpoint for ABDM
-    // Prefer authBaseURL if provided, otherwise fall back to baseUrl
-    let authBaseURL = (this.config as any).authBaseURL || this.config.baseUrl;
-    
-    // Ensure the base URL doesn't end with a slash to avoid double slashes
-    authBaseURL = authBaseURL.endsWith('/') ? authBaseURL.slice(0, -1) : authBaseURL;
-    
-    // Construct the authentication URL
-    const authUrl = `${authBaseURL}/v3/auth/token`;
+    // Use the v3 authentication endpoint for ABDM with the correct path
+    // Remove the /gateway part from baseUrl and replace with /api
+    const base = this.config.baseUrl.endsWith('/') ? this.config.baseUrl.slice(0, -1) : this.config.baseUrl;
+    const baseUrlWithoutGateway = base.replace('/gateway', '');
+    const authUrl = `${baseUrlWithoutGateway}/api/hiecm/gateway/v3/sessions`;
     logger.debug(`[${requestId}] Authentication Endpoint: ${authUrl}`);
-    
-    // Log environment variables for debugging
-    logger.debug(`[${requestId}] Environment Variables:`);
-    Object.entries(process.env)
-      .filter(([key]) => key.startsWith('ABHA_') || key === 'NODE_ENV')
-      .forEach(([key, value]) => {
-        const displayValue = key.includes('SECRET') || key.includes('KEY') 
-          ? '*** (set)' 
-          : value || 'undefined';
-        logger.debug(`[${requestId}]   ${key}=${displayValue}`);
-      });
-    
-    // Create Basic Auth header
-    const authString = Buffer.from(
-      `${this.config.clientId}:${this.config.clientSecret}`
-    ).toString('base64');
 
-    // Prepare form data for x-www-form-urlencoded
-    const params = new URLSearchParams();
-    params.append('grant_type', 'client_credentials');
-    params.append('client_id', this.config.clientId);
-    params.append('client_secret', this.config.clientSecret);
-
-    // Create a custom request config with our additional properties
-    const requestConfig: AxiosRequestConfig & { requestId?: string } = {
-      url: authUrl,
-      method: 'POST',
-      data: params.toString(),
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${authString}`,
-        'X-CM-ID': (this.config as any).xcmId || 'sbx',
-      },
-      // Always resolve the promise so we can handle all status codes
-      validateStatus: () => true,
-      // Add timeout to prevent hanging
-      timeout: 30000, // Increased timeout to 30 seconds
-      // Add request ID for tracing
-      requestId,
-      // Enable request/response interception for detailed logging
-      transitional: {
-        silentJSONParsing: false,
-        forcedJSONParsing: false,
-        clarifyTimeoutError: true,
-      },
+    // Prepare request data as JSON
+    const requestData = {
+      clientId: this.config.clientId,
+      clientSecret: this.config.clientSecret,
+      grantType: 'client_credentials'
     };
 
-    // Log the request details (with sensitive data masked)
-    logger.debug(`[${requestId}] === AUTHENTICATION REQUEST ===`);
-    logger.debug(`[${requestId}] URL: ${authUrl}`);
-    logger.debug(`[${requestId}] Method: ${requestConfig.method}`);
-    logger.debug(`[${requestId}] Headers:`, {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': 'Basic ***',
-      'X-CM-ID': (this.config as any).xcmId || 'sbx',
-    });
-    logger.debug(`[${requestId}] Body:`, params.toString());
-    logger.debug(`[${requestId}] Timeout: ${requestConfig.timeout}ms`);
-    
-    // Log the actual auth string for debugging (masked)
-    logger.debug(`[${requestId}] Auth String (first 10 chars): Basic ${authString.substring(0, 10)}...`);
-    
-    // Log the full URL being used for the request
-    logger.debug(`[${requestId}] Full Request URL: ${authUrl}`);
-    
-    // Log the environment variables for debugging
-    logger.debug(`[${requestId}] Environment Variables:`, {
-      NODE_ENV: process.env['NODE_ENV'],
-      ABHA_CLIENT_ID: process.env['ABHA_CLIENT_ID'] ? '***' : 'not set',
-      ABHA_CLIENT_SECRET: process.env['ABHA_CLIENT_SECRET'] ? '***' : 'not set',
-      LOG_LEVEL: process.env['LOG_LEVEL'] || 'info',
-      NODE_TLS_REJECT_UNAUTHORIZED: process.env['NODE_TLS_REJECT_UNAUTHORIZED'] || 'not set',
-    });
-
-    // Log the full request details (with sensitive data masked)
-    logger.debug('Sending authentication request:', {
+    // Create a custom request config with proper typing
+    const requestConfig: AxiosRequestConfig = {
       url: authUrl,
       method: 'POST',
+      data: requestData,
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ***',
-        'X-CM-ID': (this.config as any).xcmId || 'sbx',
+        'Content-Type': 'application/json',
+        'REQUEST-ID': requestId,
+        'TIMESTAMP': new Date().toISOString(),
+        'X-CM-ID': this.config.xcmId || 'sbx',
+        'Accept': 'application/json'
       },
-      data: 'grant_type=client_credentials&client_id=***&client_secret=***',
-      fullUrl: authUrl,
-      authHeader: `Basic ${authString.substring(0, 10)}...`
-    });
-
-    try {
-      logger.debug('Sending HTTP request to:', authUrl);
-      const startTime = Date.now();
-      const response = await axios.request<AuthTokenResponse>(requestConfig);
-      const duration = Date.now() - startTime;
-
-      // Log response details
-      const responseData = response.data || {};
-      const responseDetails = {
-        status: response.status,
-        statusText: response.statusText,
-        duration: `${duration}ms`,
-        headers: response.headers,
-        data: responseData,
-        config: {
-          url: response.config?.url,
-          method: response.config?.method,
-          headers: {
-            ...response.config?.headers,
-            Authorization: '***',
-          },
-        },
-      };
+      timeout: this.config.timeout || 30000,
+      transitional: {
+        silentJSONParsing: false,
+        forcedJSONParsing: true,
+        clarifyTimeoutError: true
+      }
+    };
+    
+    let attempts = 0;
+    let lastError: Error | null = null;
+    let response: any = null;
+    
+    // Helper function to calculate delay with jitter
+    const calculateDelay = (baseDelay: number, attempt: number): number => {
+      const backoff = baseDelay * Math.pow(2, attempt - 1);
+      const jitter = Math.random() * 0.2 * backoff; // Add up to 20% jitter
+      return Math.min(backoff + jitter, 30000); // Cap at 30 seconds
+    };
+    
+    while (attempts < retryCount) {
+      attempts++;
+      const attemptStartTime = Date.now();
       
-      logger.debug('Authentication response received:', responseDetails);
-
-      if (response.status !== 200) {
-        const errorDetails = {
-          status: response.status,
-          statusText: response.statusText,
-          error: responseData.error || 'Unknown error',
-          errorDescription: responseData.error_description || 'No error description provided',
-          timestamp: new Date().toISOString(),
-          request: {
-            url: response.config?.url,
-            method: response.config?.method,
-            headers: {
-              ...response.config?.headers,
-              Authorization: '***',
-            },
-          },
-          response: {
-            status: response.status,
-            statusText: response.statusText,
-            headers: response.headers,
-            data: responseData,
-          },
-        };
-
-        // Log the full error details for debugging
-        logger.error('Authentication failed with status:', JSON.stringify(errorDetails, null, 2));
+      try {
+        logger.debug(`[${requestId}] Authentication attempt ${attempts}/${retryCount}...`);
         
-        // Provide more specific error messages based on the status code
-        let errorMessage = `Authentication failed with status ${response.status}`;
-        if (responseData.error_description) {
-          errorMessage += `: ${responseData.error_description}`;
-        } else if (responseData.error) {
-          errorMessage += `: ${responseData.error}`;
-        } else if (response.status === 401) {
-          errorMessage = 'Invalid client credentials or authentication failed. Please verify your client ID and secret.';
-        } else if (response.status === 400) {
-          errorMessage = 'Invalid request. Please check your request parameters';
-        } else if (response.status === 404) {
-          errorMessage = 'Authentication endpoint not found. Please check the base URL and authentication endpoint.';
-        } else if (response.status >= 500) {
-          errorMessage = 'Server error occurred while authenticating. Please try again later.';
-        } else {
-          // For any other status code, include the response data in the error message
-          errorMessage += `: ${JSON.stringify(responseData, null, 2)}`;
+        // Make the authentication request with detailed logging
+        logger.debug(`[${requestId}] Sending authentication request to: ${authUrl}`);
+        logger.debug(`[${requestId}] Request headers:`, {
+          ...requestConfig.headers,
+          'X-CLIENT-ID': this.config.clientId ? '***' : '(not set)',
+          'X-TIMESTAMP': requestConfig.headers?.['TIMESTAMP']
+        });
+        
+        try {
+          response = await this.client.request({
+            ...requestConfig,
+            responseType: 'text',
+            validateStatus: (status) => {
+              // Accept both success (2xx) and 202 (Accepted) status codes
+              const isValid = (status >= 200 && status < 300) || status === 202;
+              logger.debug(`[${requestId}] Status validation for ${status}: ${isValid ? 'valid' : 'invalid'}`);
+              return isValid;
+            },
+            // Add timeout for this specific request
+            timeout: Math.min(this.config.timeout || 30000, 15000) // Cap at 15s for auth requests
+          });
+        } catch (requestError) {
+          if (axios.isAxiosError(requestError)) {
+            // Handle network errors and timeouts specifically
+            if (requestError.code === 'ECONNABORTED') {
+              throw new Error(`Request timed out after ${requestError.config?.timeout}ms`);
+            }
+            if (requestError.code === 'ECONNREFUSED') {
+              throw new Error(`Connection refused to ${requestError.config?.url}`);
+            }
+          }
+          throw requestError; // Re-throw for the outer catch to handle
+        }
+
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+        
+        logger.debug(`[${requestId}] Request completed in ${duration}ms`);
+        logger.debug(`[${requestId}] Status: ${response.status} ${response.statusText}`);
+        logger.debug(`[${requestId}] Headers:`, response.headers);
+        
+        // If we got a successful response with a token
+        if (response.status >= 200 && response.status < 300) {
+          let responseData: AuthResponse;
+          
+          try {
+            // Try to parse the response data
+            const responseText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+            responseData = JSON.parse(responseText);
+            
+            if (responseData.accessToken) {
+              // Store the token and expiry
+              this._authToken = responseData.accessToken;
+              this._tokenExpiry = new Date(Date.now() + ((responseData.expiresIn || 1199) * 1000));
+              
+              logger.debug(`[${requestId}] Authentication successful`);
+              logger.debug(`[${requestId}] Token Type: ${responseData.tokenType}`);
+              logger.debug(`[${requestId}] Expires In: ${responseData.expiresIn} seconds`);
+              logger.debug(`[${requestId}] Token will expire at: ${this._tokenExpiry.toISOString()}`);
+              
+              return responseData.accessToken;
+            }
+            
+            throw new Error('No access token in response');
+            
+          } catch (parseError) {
+            const errorMsg = parseError instanceof Error 
+              ? `Failed to parse authentication response: ${parseError.message}`
+              : 'Failed to parse authentication response: Unknown error';
+            throw new Error(errorMsg);
+          }
         }
         
-        // Include the request URL in the error message for easier debugging
-        errorMessage += `\nRequest URL: ${response.config?.url}`;
+        // Handle 202 Accepted with retry
+        if (response.status === 202) {
+          const retryAfter = response.headers['retry-after'] 
+            ? Math.max(1000, parseInt(response.headers['retry-after'], 10) * 1000) // Ensure minimum 1s
+            : calculateDelay(retryDelay, attempts);
+          
+          const attemptDuration = Date.now() - attemptStartTime;
+          logger.warn(`[${requestId}] Request accepted but not completed (202). Attempt ${attempts}/${retryCount} failed in ${attemptDuration}ms`);
+          
+          // Log response headers for debugging
+          logger.debug(`[${requestId}] Response headers:`, response.headers);
+          
+          // Only retry if we have attempts left
+          if (attempts < retryCount) {
+            logger.info(`[${requestId}] Retrying in ${Math.round(retryAfter / 1000)}s...`);
+            await new Promise(resolve => setTimeout(resolve, retryAfter));
+            continue;
+          } else {
+            throw new Error('Maximum retry attempts reached for 202 Accepted response');
+          }
+        }
         
-        // Create a more detailed error object
-        const error = new Error(errorMessage);
-        (error as any).status = response.status;
-        (error as any).response = response;
+        // If we get here, we have an unexpected status code
+        throw new Error(`Authentication failed with status ${response.status}: ${response.statusText}`);
         
-        throw error;
-      }
-
-      const { accessToken, expiresIn } = response.data;
-      if (!accessToken) {
-        throw new Error('No access token received in response');
-      }
-
-      this._authToken = accessToken;
-      this._tokenExpiry = new Date(Date.now() + (expiresIn - 300) * 1000);
-      
-      logger.info('Successfully authenticated with ABDM API');
-    } catch (error: unknown) {
-      let errorMessage: string;
-      if (axios.isAxiosError(error)) {
-        const responseData = error.response?.data || {};
-        errorMessage = responseData.error?.message || 
-                      responseData.message || 
-                      error.message || 
-                      'Unknown authentication error';
+      } catch (error: unknown) {
+        lastError = error instanceof Error ? error : new Error(String(error));
         
-        logger.error('ABDM Authentication Error:', {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: responseData,
-          headers: error.config?.headers ? {
-            ...error.config.headers,
-            'X-HIU-ID': '***',
-            'X-HIU-Client-Key': '***',
-            'Content-Type': error.config.headers['Content-Type']
-          } : {}
-        });
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      } else {
-        errorMessage = 'An unexpected error occurred during authentication.';
+        // Log detailed error information
+        if (axios.isAxiosError(error) && error.response) {
+          const errResponse = error.response;
+          // Log detailed error information
+          const errorDetails: Record<string, any> = {
+            status: errResponse.status,
+            statusText: errResponse.statusText,
+            url: errResponse.config?.url,
+            method: errResponse.config?.method?.toUpperCase(),
+            headers: {
+              ...errResponse.config?.headers,
+              'X-CLIENT-ID': '***',
+              'X-CLIENT-SECRET': '***',
+              'Authorization': '***'
+            }
+          };
+          
+          logger.error(`[${requestId}] Authentication error (${attempts}/${retryCount}): ${errResponse.status} ${errResponse.statusText}`, errorDetails);
+          
+          // Try to extract and log error details from response
+          if (errResponse.data) {
+            try {
+              const errorData = typeof errResponse.data === 'string' 
+                ? JSON.parse(errResponse.data) 
+                : errResponse.data;
+              
+              // Log error details in a more structured way
+              const errorInfo = {
+                error: errorData.error || 'Unknown error',
+                message: errorData.message || 'No error message provided',
+                code: errorData.code || 'no_error_code',
+                details: errorData.details || []
+              };
+              
+              logger.error(`[${requestId}] Error details:`, errorInfo);
+              
+              // If we have a 400/401 error with specific message, provide more context
+              if ((errResponse.status === 400 || errResponse.status === 401) && errorData.message) {
+                logger.error(`[${requestId}] Authentication failed: ${errorData.message}`);
+                if (errorData.message.includes('invalid_client')) {
+                  logger.error(`[${requestId}] Please verify your client_id and client_secret are correct`);
+                }
+              }
+            } catch (e) {
+              // If we can't parse the error, log the raw response
+              const responsePreview = String(errResponse.data).substring(0, 500);
+              logger.error(`[${requestId}] Raw error response (${responsePreview.length} chars):`, responsePreview);
+              
+              // If the response is HTML, it might be a proxy or gateway error page
+              if (responsePreview.trim().toLowerCase().startsWith('<!doctype html>') || 
+                  responsePreview.trim().toLowerCase().startsWith('<html>')) {
+                logger.error(`[${requestId}] Received HTML response - this might indicate a proxy or gateway issue`);
+              }
+            }
+          }
+          
+          // If we get a 401, there's no point in retrying with the same credentials
+          if (errResponse.status === 401) {
+            logger.error(`[${requestId}] Invalid credentials. Stopping retries.`);
+            break;
+          }
+          
+          // For rate limiting, use the Retry-After header if available
+          if (errResponse.status === 429) {
+            const retryAfter = errResponse.headers['retry-after'] 
+              ? parseInt(errResponse.headers['retry-after'], 10) * 1000 
+              : retryDelay * Math.pow(2, attempts);
+            
+            if (attempts < retryCount) {
+              logger.warn(`[${requestId}] Rate limited. Waiting ${retryAfter}ms before retry (${attempts + 1}/${retryCount})...`);
+              await new Promise(resolve => setTimeout(resolve, retryAfter));
+              continue;
+            }
+          }
+        } else {
+          logger.error(`[${requestId}] Request error (${attempts}/${retryCount}):`, error);
+        }
+        
+        // If we've exhausted all retries, break the loop
+        if (attempts >= retryCount) {
+          break;
+        }
+        
+        // Exponential backoff for retries
+        const delay = retryDelay * Math.pow(2, attempts - 1);
+        logger.debug(`[${requestId}] Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-      logger.error('Authentication failed:', errorMessage);
-      throw new Error(`Authentication failed: ${errorMessage}`);
     }
+    
+    // If we get here, all retries have failed
+    const errorMessage = lastError 
+      ? `Authentication failed after ${retryCount} attempts: ${lastError.message}`
+      : `Authentication failed after ${retryCount} attempts`;
+      
+    logger.error(`[${requestId}] ${errorMessage}`);
+    throw new Error(errorMessage);
   }
 
   /**
