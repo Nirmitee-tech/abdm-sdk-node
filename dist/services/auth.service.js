@@ -119,40 +119,6 @@ class AuthService {
         }
         return response;
     }
-    /**
-     * Fetches the public key from the ABDM server
-     * @returns A promise that resolves to the public key response
-     * @throws {Error} If the request fails or the response is invalid
-     */
-    async getPublicKey() {
-        try {
-            const isSandbox = this.httpClient?.getConfig?.()?.useSandbox !== false;
-            if (isSandbox) {
-                // For sandbox, we need to use a different endpoint
-                const response = await this.httpClient.get('/api/v1/auth/cert', {}, 'default' // Use the default base URL for sandbox
-                );
-                if (response.status === 'SUCCESS' && response.data?.key) {
-                    return {
-                        status: 'SUCCESS',
-                        data: { key: response.data.key }
-                    };
-                }
-            }
-            else {
-                // For production, use the standard endpoint
-                const response = await this.httpClient.get('/v3/certs', {}, 'auth' // Use the auth base URL for production
-                );
-                if (response.status === 'SUCCESS' && response.data?.key) {
-                    return response;
-                }
-            }
-            throw new Error('Failed to fetch public key: Invalid response from server');
-        }
-        catch (error) {
-            this.logger.error('Error fetching public key:', error);
-            throw new Error(`Failed to fetch public key: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
 }
 exports.AuthService = AuthService;
 // Re-export types

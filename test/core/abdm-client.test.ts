@@ -91,4 +91,102 @@ describe('ABDM Authentication Test', () => {
       throw error; // Re-throw to fail the test
     }
   }, 60000); // Increased timeout to 60 seconds for the API call
+
+  it('should fetch the public key successfully', async () => {
+    // First authenticate to get a valid token
+    await client.authenticate();
+    
+    // Act - Call getPublicKey
+    const result = await client.getPublicKey();
+
+    console.log(result)
+    
+    // Assert - Verify the response structure and content
+    expect(result).toBeDefined();
+    expect(result.status).toBe('SUCCESS');
+    
+    // Add type guard to ensure data exists
+    if (!result.data) {
+      throw new Error('No data in response');
+    }    
+    expect(result.data).toBeDefined();
+    expect(typeof result.data.key).toBe('string');
+    
+    // Verify the key format (should be a PEM-encoded public key)
+    const publicKey = result.data.key;
+    expect(publicKey).toContain('-----BEGIN PUBLIC KEY-----');
+    expect(publicKey).toContain('-----END PUBLIC KEY-----');
+    
+    console.log('Successfully retrieved public key');
+  }, 30000); // 30 seconds timeout for the public key fetch
+
+  it.only('should generate Aadhaar OTP successfully', async () => {
+    // First authenticate to get a valid token
+    await client.authenticate();
+    
+    // Test data
+    const testAadhaar = '123456789012'; // 12-digit test Aadhaar number
+    // const txnId = `TEST-${Date.now()}`; // Generate a unique transaction ID for testing
+    
+    // Act - Call generateAadhaarOTP
+    const response = await client.generateAadhaarOTP({
+      aadhaarNumber: testAadhaar,
+      txnId: "",
+      requesterId: 'ABHA_TEST'
+    });
+
+   process.stdout.write(JSON.stringify(response))
+    
+    // Assert - Verify the response structure
+    expect(response).toBeDefined();
+    expect(response.status).toBe('SUCCESS');
+    expect(response.data).toBeDefined();
+    
+    // Verify the response data structure
+    if (response.data) {
+      expect(typeof response.data.txnId).toBe('string');
+      expect(response.data.txnId.length).toBeGreaterThan(0);
+      expect(typeof response.data.maskedAadhaar).toBe('string');
+      expect(response.data.maskedAadhaar).toContain('****');
+      expect(typeof response.data.timestamp).toBe('string');
+    } else {
+      throw new Error('No data in response');
+    }
+    
+    // Log the response (without sensitive data)
+    console.log('Aadhaar OTP response:', {
+      status: response.status,
+      txnId: response.data?.txnId,
+      maskedAadhaar: response.data?.maskedAadhaar,
+      timestamp: response.data?.timestamp
+    });
+  }, 30000); // 30 seconds timeout for the OTP generation
+
+  it('should encrypt data using the public key', async () => {
+    // First authenticate to get a valid token
+    await client.authenticate();
+    
+    // Get the public key first
+    const keyResponse = await client.getPublicKey();
+    if (!keyResponse.data) {
+      throw new Error('No public key data in response');
+    }
+    
+    // Test data to encrypt
+    const testData = 'sensitive-data-' + Date.now();
+    
+    // Act - Encrypt the test data
+    const encrypted = await client.encrypt(testData);
+    
+    // Assert - Verify the encrypted data
+    expect(encrypted).toBeDefined();
+    expect(typeof encrypted).toBe('string');
+    expect(encrypted.length).toBeGreaterThan(0);
+    
+    // The encrypted data should be a base64 string
+    const base64Regex = /^[A-Za-z0-9+/=]+$/;
+    expect(encrypted).toMatch(base64Regex);
+    
+    console.log('Successfully encrypted test data');
+  }, 30000); // 30 seconds timeout for the encryption test
 });

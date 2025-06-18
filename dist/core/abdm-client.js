@@ -123,15 +123,77 @@ class ABDMClient {
     async authenticate() {
         await this.http.authenticate();
     }
-    // Auth Service Methods
+    /**
+     * Generates an OTP for Aadhaar-based authentication
+     * @param request The request containing Aadhaar number and other details
+     * @returns A promise that resolves to the OTP response
+     * @throws {Error} If the request fails or the environment is not supported
+     */
     async generateAadhaarOTP(request) {
-        return this.auth.generateAadhaarOTP(request);
+        try {
+            // Log the attempt to generate Aadhaar OTP (without logging sensitive data)
+            console.debug('Generating Aadhaar OTP...');
+            // Delegate to the auth service implementation
+            const response = await this.auth.generateAadhaarOTP(request);
+            // Log success (without sensitive data)
+            console.debug('Successfully generated Aadhaar OTP');
+            return response;
+        }
+        catch (error) {
+            // Log the error with context
+            console.error('Failed to generate Aadhaar OTP:', error);
+            // Re-throw the error with consistent formatting
+            if (error instanceof Error) {
+                throw error;
+            }
+            throw new Error('Failed to generate Aadhaar OTP due to an unknown error');
+        }
     }
     async createAbhaIdByAadhaar(request) {
         return this.auth.createAbhaIdByAadhaar(request);
     }
+    /**
+     * Encrypts the given data using the configured encryption method
+     * @param data The data to encrypt
+     * @returns A promise that resolves to the encrypted data
+     */
+    async encrypt(data) {
+        if (!this.http.encrypt) {
+            throw new Error('Encryption is not configured. Make sure to provide an encryption implementation.');
+        }
+        return this.http.encrypt(data);
+    }
+    /**
+     * Fetches the public key from the ABDM server
+     * @returns A promise that resolves to the public key response
+     */
     async getPublicKey() {
-        return this.auth.getPublicKey();
+        try {
+            const response = await this.http.getPublicKey();
+            if (!response) {
+                return {
+                    status: 'ERROR',
+                    error: {
+                        code: 'NO_RESPONSE',
+                        message: 'No response from server when fetching public key'
+                    }
+                };
+            }
+            return {
+                status: 'SUCCESS',
+                data: response
+            };
+        }
+        catch (error) {
+            return {
+                status: 'ERROR',
+                error: {
+                    code: 'PUBLIC_KEY_FETCH_ERROR',
+                    message: error instanceof Error ? error.message : 'Failed to fetch public key',
+                    details: error
+                }
+            };
+        }
     }
     // Health Service Methods
     async addUpdateHealthFacilityServices(data) {

@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import NodeCache from 'node-cache';
 import { APIResponse } from '../types';
+import { generateRequestId, getCurrentTimestamp, getCurrentTimestampMs } from './request-utils';
 
 // Extend AxiosRequestConfig with our custom options
 export interface RequestOptions extends Omit<AxiosRequestConfig, 'data'> {
@@ -153,7 +154,9 @@ export class HttpClient {
     config: RequestOptions,
     retryCount = 0
   ): Promise<AxiosResponse<T>> {
-    const requestId = config.headers?.['X-Request-ID'] as string || 'unknown';
+    // Get or generate request ID
+    const requestId = config.headers?.['X-Request-ID'] as string || generateRequestId();
+    const timestamp = new Date().toISOString();
     
     // Determine retry configuration
     const retryConfig = typeof config.retry === 'object' ? config.retry : this._defaultRetryConfig;
@@ -162,11 +165,18 @@ export class HttpClient {
       : config.retry === false ? 0 : retryConfig.maxRetries;
     
     try {
-      const response = await this.client.request<T>({
+      // Prepare request config with common headers
+      const requestConfig = {
         ...config,
         timeout: config.timeout ?? this.config.timeout ?? DEFAULT_CONFIG.timeout,
-      });
+        headers: {
+          ...config.headers,
+          'X-Request-ID': requestId,
+          'X-Timestamp': timestamp
+        }
+      };
 
+      const response = await this.client.request<T>(requestConfig);
       return response;
       
     } catch (error) {
@@ -372,7 +382,7 @@ export class HttpClient {
       timeout: config.timeout || 30000,
       // Set base URLs based on environment
       baseUrl: isSandbox 
-        ? (config.sandboxBaseUrl || 'https://abdm.abdm.gov.in')
+        ? (config.sandboxBaseUrl || 'https://abhasbx.abdm.gov.in')
         : (config.baseUrl || 'https://abdm.gov.in'),
       // Set auth base URL
       authBaseUrl: isSandbox 
@@ -437,9 +447,10 @@ export class HttpClient {
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         const internalConfig = config as CustomAxiosRequestConfig;
-        const requestId = Math.random().toString(36).substring(2, 8);
+        const requestId = generateRequestId();
+        const timestamp = Date.now();
         internalConfig['requestId'] = requestId;
-        internalConfig['timestamp'] = Date.now();
+        internalConfig['timestamp'] = timestamp;
 
         // Log the request details
         logger.debug(`[${requestId}] === REQUEST START ===`);
@@ -475,7 +486,7 @@ export class HttpClient {
           }
         }
 
-        // Try to authenticate if no valid token
+        // Get new token if needed
         if (!currentToken && this.config.clientId && this.config.clientSecret) {
           logger.debug(`[${requestId}] No valid token - attempting to authenticate...`);
           try {
@@ -492,14 +503,14 @@ export class HttpClient {
         }
 
         // Add common headers with proper timestamp format
-        const timestamp = new Date();
-        const formattedTimestamp = timestamp.toISOString();
+        const currentDate = new Date();
+        const formattedTimestamp = currentDate.toISOString();
         
         Object.assign(internalConfig.headers, {
           'X-CM-ID': this.config['xcmId'] || 'sbx',
           'X-Request-ID': requestId,
           'X-Timestamp': formattedTimestamp,
-          'Date': timestamp.toUTCString()
+          'Date': currentDate.toUTCString()
         });
         
         // Log the timestamp being sent
@@ -526,10 +537,11 @@ export class HttpClient {
   private _setupRequestInterceptors(): void {
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        const requestId = Math.random().toString(36).substring(2, 10);
+        const requestId = generateRequestId();
+        const timestamp = Date.now();
         const internalConfig = config as CustomAxiosRequestConfig;
         internalConfig['requestId'] = requestId;
-        internalConfig['timestamp'] = Date.now();
+        internalConfig['timestamp'] = timestamp;
 
         // Log the request
         logger.debug(`[${requestId}] ${config.method?.toUpperCase()} ${config.url}`);
@@ -608,7 +620,7 @@ export class HttpClient {
    * @param retryDelay Delay between retries in milliseconds (default: 1000)
    */
   public async authenticate(maxRetries: number = 3, retryDelay: number = 1000): Promise<string> {
-    const requestId = Math.random().toString(36).substring(2, 8);
+    const requestId = generateRequestId();
     let lastError: Error | null = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -996,8 +1008,11 @@ export class HttpClient {
     config: RequestOptions,
     serviceType: 'auth' | 'gateway' | 'default' = 'default'
   ): Promise<ExtendedAPIResponse<T>> {
-    const requestId = Math.random().toString(36).substring(2, 10);
-    const startTime = Date.now();
+    // Generate request metadata
+    const requestId = generateRequestId();
+    const startTime = getCurrentTimestampMs();
+    // Timestamp is used in the response
+    const timestamp = getCurrentTimestamp();
     
     try {
       // Build the full URL
@@ -1022,14 +1037,14 @@ export class HttpClient {
         }
       }
     
-      // Prepare request config
+      // Prepare request config with common headers
       const requestConfig: RequestOptions = {
         ...config,
         url: requestUrl,
         headers: {
           ...config.headers,
           'X-Request-ID': requestId,
-          'X-Timestamp': new Date().toISOString(),
+          'X-Timestamp': timestamp,
         },
       };
       
@@ -1043,7 +1058,7 @@ export class HttpClient {
           this.setCachedResponse(cacheKey, response.data, cacheTtl);
         }
         
-        const duration = Date.now() - startTime;
+        const duration = getCurrentTimestampMs() - startTime;
         logger.debug(`[${requestId}] === REQUEST COMPLETED (${duration}ms) ===`);
         
         return {

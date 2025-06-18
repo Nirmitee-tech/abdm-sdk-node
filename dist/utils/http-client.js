@@ -15,13 +15,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -30,6 +40,7 @@ exports.HttpClient = void 0;
 const crypto = __importStar(require("crypto"));
 const axios_1 = __importDefault(require("axios"));
 const node_cache_1 = __importDefault(require("node-cache"));
+const request_utils_1 = require("./request-utils");
 const logger_1 = require("./logger");
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -85,17 +96,26 @@ class HttpClient {
      * @returns A promise that resolves to the Axios response
      */
     async executeWithRetry(config, retryCount = 0) {
-        const requestId = config.headers?.['X-Request-ID'] || 'unknown';
+        // Get or generate request ID
+        const requestId = config.headers?.['X-Request-ID'] || (0, request_utils_1.generateRequestId)();
+        const timestamp = new Date().toISOString();
         // Determine retry configuration
         const retryConfig = typeof config.retry === 'object' ? config.retry : this._defaultRetryConfig;
         const maxRetries = typeof config.retry === 'number'
             ? config.retry
             : config.retry === false ? 0 : retryConfig.maxRetries;
         try {
-            const response = await this.client.request({
+            // Prepare request config with common headers
+            const requestConfig = {
                 ...config,
                 timeout: config.timeout ?? this.config.timeout ?? DEFAULT_CONFIG.timeout,
-            });
+                headers: {
+                    ...config.headers,
+                    'X-Request-ID': requestId,
+                    'X-Timestamp': timestamp
+                }
+            };
+            const response = await this.client.request(requestConfig);
             return response;
         }
         catch (error) {
@@ -274,7 +294,7 @@ class HttpClient {
             timeout: config.timeout || 30000,
             // Set base URLs based on environment
             baseUrl: isSandbox
-                ? (config.sandboxBaseUrl || 'https://abdm.abdm.gov.in')
+                ? (config.sandboxBaseUrl || 'https://abhasbx.abdm.gov.in')
                 : (config.baseUrl || 'https://abdm.gov.in'),
             // Set auth base URL
             authBaseUrl: isSandbox
@@ -330,9 +350,10 @@ class HttpClient {
         // Add request interceptor for authentication and logging
         this.client.interceptors.request.use(async (config) => {
             const internalConfig = config;
-            const requestId = Math.random().toString(36).substring(2, 8);
+            const requestId = (0, request_utils_1.generateRequestId)();
+            const timestamp = Date.now();
             internalConfig['requestId'] = requestId;
-            internalConfig['timestamp'] = Date.now();
+            internalConfig['timestamp'] = timestamp;
             // Log the request details
             logger_1.logger.debug(`[${requestId}] === REQUEST START ===`);
             logger_1.logger.debug(`[${requestId}] ${config.method?.toUpperCase()} ${config.url}`);
@@ -362,7 +383,7 @@ class HttpClient {
                     logger_1.logger.debug(`[${requestId}] Using existing token (expires at ${this._tokenExpiry.toISOString()})`);
                 }
             }
-            // Try to authenticate if no valid token
+            // Get new token if needed
             if (!currentToken && this.config.clientId && this.config.clientSecret) {
                 logger_1.logger.debug(`[${requestId}] No valid token - attempting to authenticate...`);
                 try {
@@ -380,13 +401,13 @@ class HttpClient {
                 logger_1.logger.debug(`[${requestId}] No credentials available for authentication`);
             }
             // Add common headers with proper timestamp format
-            const timestamp = new Date();
-            const formattedTimestamp = timestamp.toISOString();
+            const currentDate = new Date();
+            const formattedTimestamp = currentDate.toISOString();
             Object.assign(internalConfig.headers, {
                 'X-CM-ID': this.config['xcmId'] || 'sbx',
                 'X-Request-ID': requestId,
                 'X-Timestamp': formattedTimestamp,
-                'Date': timestamp.toUTCString()
+                'Date': currentDate.toUTCString()
             });
             // Log the timestamp being sent
             logger_1.logger.debug(`[${requestId}] Using timestamp: ${formattedTimestamp}`);
@@ -405,10 +426,11 @@ class HttpClient {
      */
     _setupRequestInterceptors() {
         this.client.interceptors.request.use(async (config) => {
-            const requestId = Math.random().toString(36).substring(2, 10);
+            const requestId = (0, request_utils_1.generateRequestId)();
+            const timestamp = Date.now();
             const internalConfig = config;
             internalConfig['requestId'] = requestId;
-            internalConfig['timestamp'] = Date.now();
+            internalConfig['timestamp'] = timestamp;
             // Log the request
             logger_1.logger.debug(`[${requestId}] ${config.method?.toUpperCase()} ${config.url}`);
             // Add auth token if available and not explicitly skipped
@@ -473,7 +495,7 @@ class HttpClient {
      * @param retryDelay Delay between retries in milliseconds (default: 1000)
      */
     async authenticate(maxRetries = 3, retryDelay = 1000) {
-        const requestId = Math.random().toString(36).substring(2, 8);
+        const requestId = (0, request_utils_1.generateRequestId)();
         let lastError = null;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             logger_1.logger.debug(`[${requestId}] Starting authentication attempt ${attempt}/${maxRetries}...`);
@@ -489,8 +511,9 @@ class HttpClient {
             };
             try {
                 logger_1.logger.debug(`[${requestId}] Sending authentication request to auth service`);
-                // Use the v3 sessions endpoint for both sandbox and production
-                const authUrl = this.buildUrl('/v3/sessions', 'auth');
+                // Use the correct sessions endpoint based on environment
+                const sessionsPath = this.config.useSandbox ? '/v0.5/sessions' : '/v3/sessions';
+                const authUrl = this.buildUrl(sessionsPath, 'auth');
                 logger_1.logger.debug(`[${requestId}] Using auth URL: ${authUrl}`);
                 // Create a new axios instance just for authentication to avoid interceptors
                 const authClient = axios_1.default.create({
@@ -804,8 +827,11 @@ class HttpClient {
      * @returns A promise that resolves to the API response
      */
     async request(config, serviceType = 'default') {
-        const requestId = Math.random().toString(36).substring(2, 10);
-        const startTime = Date.now();
+        // Generate request metadata
+        const requestId = (0, request_utils_1.generateRequestId)();
+        const startTime = (0, request_utils_1.getCurrentTimestampMs)();
+        // Timestamp is used in the response
+        const timestamp = (0, request_utils_1.getCurrentTimestamp)();
         try {
             // Build the full URL
             const url = config.url || '';
@@ -826,14 +852,14 @@ class HttpClient {
                     };
                 }
             }
-            // Prepare request config
+            // Prepare request config with common headers
             const requestConfig = {
                 ...config,
                 url: requestUrl,
                 headers: {
                     ...config.headers,
                     'X-Request-ID': requestId,
-                    'X-Timestamp': new Date().toISOString(),
+                    'X-Timestamp': timestamp,
                 },
             };
             try {
@@ -844,7 +870,7 @@ class HttpClient {
                     const cacheTtl = typeof config.cache === 'number' ? config.cache : this._defaultCacheTtl;
                     this.setCachedResponse(cacheKey, response.data, cacheTtl);
                 }
-                const duration = Date.now() - startTime;
+                const duration = (0, request_utils_1.getCurrentTimestampMs)() - startTime;
                 logger_1.logger.debug(`[${requestId}] === REQUEST COMPLETED (${duration}ms) ===`);
                 return {
                     status: 'SUCCESS',
