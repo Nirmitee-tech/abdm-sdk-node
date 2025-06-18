@@ -1,102 +1,94 @@
 import { ABDMClient } from '../../src/core/abdm-client';
-import { HttpClient } from '../../src/utils/http-client';
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load environment variables from .env.test
-const envPath = path.resolve(process.cwd(), '.env.test');
-dotenv.config({ path: envPath });
+// Load environment variables from .env file
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 // Test configuration - using real credentials from environment variables
 const config = {
   clientId: process.env.ABDM_CLIENT_ID!,
   clientSecret: process.env.ABDM_CLIENT_SECRET!,
-  useSandbox: true,
+  useSandbox: true, // Set to false for production
 };
 
-// Skip tests if required environment variables are not set
-const describeIf = (condition: boolean) => 
-  condition ? describe : describe.skip;
+describe('ABDM Authentication Test', () => {
+  // Skip tests if required environment variables are not set
+  if (!config.clientId || !config.clientSecret) {
+    console.warn('Skipping test: ABDM_CLIENT_ID and ABDM_CLIENT_SECRET environment variables are required');
+    return;
+  }
 
-const hasRequiredEnvVars = !!config.clientId && !!config.clientSecret;
-
-describeIf(hasRequiredEnvVars)('ABDMClient Integration Tests', () => {
   let client: ABDMClient;
 
   beforeEach(() => {
     // Create a new instance of ABDMClient with real configuration
-    client = new ABDMClient({
-      ...config,
-      // Add any additional test-specific configuration here
-    });
+    client = new ABDMClient(config);
   });
 
-  describe('authenticate', () => {
-    it('should authenticate with ABDM API and store a valid token', async () => {
+  it('should authenticate and return a valid access token', async () => {
+    // Log the authentication attempt
+    console.log('Attempting to authenticate with ABDM API...');
+    console.log(`Using client ID: ${config.clientId.substring(0, 5)}...`);
+    
+    try {
       // Act - Call authenticate which should store the token internally
       await client.authenticate();
       
       // Get the stored token from the http client
-      const httpClient = (client as any).http as HttpClient;
-      const token = httpClient.getAuthToken();
+      const token = (client as any).http.getAuthToken();
+      
+      // Log token info (without exposing the full token)
+      console.log('Authentication successful');
+      console.log(`Token type: ${typeof token}`);
+      console.log(`Token length: ${token?.length || 0} characters`);
       
       // Assert - Verify we got a non-empty string token
       expect(token).toBeTruthy();
       expect(typeof token).toBe('string');
-      
-      // Log the token for debugging purposes - using process.stdout.write to ensure output
-      process.stdout.write('\n--- Authentication Token Details ---\n');
-      process.stdout.write(`Token: ${token}\n`);
+      expect(token.length).toBeGreaterThan(0);
       
       // Verify the token is in JWT format (3 parts separated by dots)
-      if (token) {
-        const tokenParts = token.split('.');
-        expect(tokenParts).toHaveLength(3);
-        
-        // Log token parts (header, payload, signature)
-        console.log('\nToken Parts:');
-        console.log(`Header:  ${tokenParts[0]}`);
-        console.log(`Payload: ${tokenParts[1]}`);
-        console.log(`Sig:     ${tokenParts[2].substring(0, 20)}...`);
-        
-        // Try to decode and log the payload if it's base64 encoded
-        try {
-          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString('utf-8'));
-          console.log('\nToken Payload:');
-          console.log(JSON.stringify(payload, null, 2));
-        } catch (e) {
-          console.warn('Could not decode token payload:', e);
-        }
-      } else {
-        fail('Token should not be null or undefined');
-      }
-    }, 30000); // Increased timeout for API call
-
-    it('should store the auth token after successful authentication', async () => {
-      // Act - Call authenticate which should store the token internally
-      await client.authenticate();
+      const tokenParts = token.split('.');
+      expect(tokenParts).toHaveLength(3);
       
-      // Get the stored token from the http client
-      const httpClient = (client as any).http as HttpClient;
-      const token = httpClient.getAuthToken();
-
-      // Assert - Verify the token is stored and valid
-      expect(token).toBeTruthy();
-      
-      // Verify the token is in JWT format
-      if (token) {
-        const tokenParts = token.split('.');
-        expect(tokenParts).toHaveLength(3);
-      } else {
-        fail('Stored token should not be null or undefined');
+      // Log the JWT parts (header and payload only, not the signature)
+      try {
+        const [header, payload] = tokenParts;
+        const decodedHeader = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
+        const decodedPayload = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'));
+        
+        console.log('Token Header:', JSON.stringify(decodedHeader, null, 2));
+        console.log('Token Payload:', JSON.stringify({
+          ...decodedPayload,
+          // Mask any sensitive claims
+          sub: decodedPayload.sub ? '***' : undefined,
+          iss: decodedPayload.iss || 'not present',
+          aud: decodedPayload.aud || 'not present',
+          iat: decodedPayload.iat ? new Date(decodedPayload.iat * 1000).toISOString() : 'not present',
+          exp: decodedPayload.exp ? new Date(decodedPayload.exp * 1000).toISOString() : 'not present',
+        }, null, 2));
+      } catch (e: unknown) {
+        const error = e as Error;
+        console.warn('Could not decode token:', error.message);
       }
-    }, 30000);
-  });
-});
-
-// Only run these tests if environment variables are not set
-describeIf(!hasRequiredEnvVars)('ABDMClient (Skipped)', () => {
-  it('skipped - ABDM_CLIENT_ID and ABDM_CLIENT_SECRET environment variables are required', () => {
-    console.warn('Skipping integration tests: ABDM_CLIENT_ID and ABDM_CLIENT_SECRET environment variables are required');
-  });
+      
+    } catch (err: unknown) {
+      const error = err as Error & {
+        response?: {
+          status?: number;
+          data?: any;
+          headers?: any;
+        };
+      };
+      
+      console.error('Authentication failed:', error.message);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+        console.error('Response headers:', error.response.headers);
+      }
+      throw error; // Re-throw to fail the test
+    }
+  }, 60000); // Increased timeout to 60 seconds for the API call
 });

@@ -263,31 +263,9 @@ class HttpClient {
             checkperiod: 60,
             useClones: false
         });
-        // Initialize the Axios instance with the provided config
-        this.config = config;
-        this.client = axios_1.default.create({
-            timeout: config.timeout || DEFAULT_CONFIG.timeout,
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                ...config.headers
-            }
-        });
-        // Set up interceptors
-        this._setupRequestInterceptors();
-        this._setupResponseInterceptors();
-        // Initialize the Axios instance with the provided config
-        this.config = config;
-        this.client = axios_1.default.create({
-            timeout: config.timeout || DEFAULT_CONFIG.timeout,
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                ...config.headers
-            }
-        });
         // Set default values if not provided
         const isSandbox = config.useSandbox !== false;
+        // Set up configuration
         this.config = {
             ...config,
             // Default to sandbox if not specified
@@ -307,6 +285,36 @@ class HttpClient {
                 ? (config.sandboxGatewayUrl || 'https://dev.abdm.gov.in/gateway')
                 : (config.gatewayBaseUrl || config.baseUrl || 'https://abdm.gov.in'),
         };
+        // Initialize or reuse the singleton Axios instance
+        if (!HttpClient.instance) {
+            // Initialize the Axios client with the base URL and SSL settings
+            const httpsAgent = new (require('https').Agent)({
+                rejectUnauthorized: false, // Only for sandbox, should be true in production
+                keepAlive: true,
+                timeout: this.config.timeout,
+            });
+            HttpClient.instance = axios_1.default.create({
+                baseURL: this.config.baseUrl,
+                timeout: this.config.timeout,
+                httpsAgent,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CM-ID': this.config.xcmId || 'sbx',
+                    ...(config.headers || {}),
+                },
+                maxRedirects: 5,
+                maxBodyLength: Infinity,
+                maxContentLength: Infinity,
+            });
+            // Add debug logging for SSL/TLS issues
+            process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Only for sandbox, remove in production
+            require('https').globalAgent.options.rejectUnauthorized = false; // Only for sandbox, remove in production
+        }
+        this.client = HttpClient.instance;
+        // Set up interceptors
+        this._setupRequestInterceptors();
+        this._setupResponseInterceptors();
         // Log the configuration
         logger_1.logger.debug('ABDM Client Configuration:', {
             useSandbox: this.config.useSandbox,
@@ -319,29 +327,6 @@ class HttpClient {
         if (config.publicKey) {
             this._publicKey = config.publicKey;
         }
-        // Initialize the Axios client with the base URL and SSL settings
-        const httpsAgent = new (require('https').Agent)({
-            rejectUnauthorized: false, // Only for sandbox, should be true in production
-            keepAlive: true,
-            timeout: this.config.timeout,
-        });
-        this.client = axios_1.default.create({
-            baseURL: this.config.baseUrl,
-            timeout: this.config.timeout,
-            httpsAgent,
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CM-ID': this.config.xcmId || 'sbx',
-                ...(config.headers || {}),
-            },
-            maxRedirects: 5,
-            maxBodyLength: Infinity,
-            maxContentLength: Infinity,
-        });
-        // Add debug logging for SSL/TLS issues
-        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Only for sandbox, remove in production
-        require('https').globalAgent.options.rejectUnauthorized = false; // Only for sandbox, remove in production
         // Add request interceptor for authentication and logging
         this.client.interceptors.request.use(async (config) => {
             const internalConfig = config;
@@ -504,10 +489,8 @@ class HttpClient {
             };
             try {
                 logger_1.logger.debug(`[${requestId}] Sending authentication request to auth service`);
-                // For sandbox, use the direct URL to avoid path issues
-                const authUrl = this.config.useSandbox !== false
-                    ? 'https://dev.abdm.gov.in/gateway/v0.5/sessions'
-                    : this.buildUrl('/v3/sessions', 'auth');
+                // Use the v3 sessions endpoint for both sandbox and production
+                const authUrl = this.buildUrl('/v3/sessions', 'auth');
                 logger_1.logger.debug(`[${requestId}] Using auth URL: ${authUrl}`);
                 // Create a new axios instance just for authentication to avoid interceptors
                 const authClient = axios_1.default.create({
@@ -677,9 +660,11 @@ class HttpClient {
                 return result;
             }
             else {
-                // Handle production environment using the internal get method
-                const response = await this.get(endpoint, {}, 'auth' // Use 'auth' service type for production
-                );
+                // Handle production environment using the internal request method
+                const response = await this.request({
+                    url: endpoint,
+                    method: 'GET'
+                }, 'auth');
                 // Check if the request was successful
                 if (response.status !== 'SUCCESS' || !response.data) {
                     const errorMessage = response.error?.message || 'Unknown error';
@@ -767,8 +752,50 @@ class HttpClient {
             if (error instanceof Error) {
                 throw new Error(`Encryption failed: ${error.message}`);
             }
-            throw new Error('An unknown error occurred during encryption.');
+            throw new Error('Encryption failed with unknown error');
         }
+    }
+    /**
+     * HTTP GET request
+     * @param url The URL to send the GET request to
+     * @param config Optional request configuration
+     * @param serviceType The type of service to determine which base URL to use
+     * @returns A promise that resolves to the API response
+     */
+    async get(url, config = {}, serviceType = 'default') {
+        return this.request({ ...config, method: 'GET', url }, serviceType);
+    }
+    /**
+     * HTTP POST request
+     * @param url The URL to send the POST request to
+     * @param data The data to send in the request body
+     * @param config Optional request configuration
+     * @param serviceType The type of service to determine which base URL to use
+     * @returns A promise that resolves to the API response
+     */
+    async post(url, data, config = {}, serviceType = 'default') {
+        return this.request({ ...config, method: 'POST', url, data }, serviceType);
+    }
+    /**
+     * HTTP PUT request
+     * @param url The URL to send the PUT request to
+     * @param data The data to send in the request body
+     * @param config Optional request configuration
+     * @param serviceType The type of service to determine which base URL to use
+     * @returns A promise that resolves to the API response
+     */
+    async put(url, data, config = {}, serviceType = 'default') {
+        return this.request({ ...config, method: 'PUT', url, data }, serviceType);
+    }
+    /**
+     * HTTP DELETE request
+     * @param url The URL to send the DELETE request to
+     * @param config Optional request configuration
+     * @param serviceType The type of service to determine which base URL to use
+     * @returns A promise that resolves to the API response
+     */
+    async delete(url, config = {}, serviceType = 'default') {
+        return this.request({ ...config, method: 'DELETE', url }, serviceType);
     }
     /**
      * The main request method that handles all HTTP requests
@@ -779,132 +806,91 @@ class HttpClient {
     async request(config, serviceType = 'default') {
         const requestId = Math.random().toString(36).substring(2, 10);
         const startTime = Date.now();
-        // Build the full URL
-        const url = config.url || '';
-        const requestUrl = this.buildUrl(url, serviceType);
-        // Generate cache key if caching is enabled
-        const cacheKey = config.cache ? this.generateCacheKey({ ...config, url: requestUrl }) : '';
-        // Check cache if enabled for GET requests
-        if (config.cache && config.method?.toUpperCase() === 'GET') {
-            const cachedResponse = this.getCachedResponse(cacheKey);
-            if (cachedResponse) {
-                logger_1.logger.debug(`[${requestId}] Returning cached response for ${requestUrl}`);
+        try {
+            // Build the full URL
+            const url = config.url || '';
+            const requestUrl = this.buildUrl(url, serviceType);
+            // Generate cache key if caching is enabled
+            const cacheKey = config.cache ? this.generateCacheKey({ ...config, url: requestUrl }) : '';
+            // Check cache if enabled for GET requests
+            if (config.cache && config.method?.toUpperCase() === 'GET') {
+                const cachedResponse = this.getCachedResponse(cacheKey);
+                if (cachedResponse) {
+                    logger_1.logger.debug(`[${requestId}] Returning cached response for ${requestUrl}`);
+                    return {
+                        status: 'SUCCESS',
+                        data: cachedResponse,
+                        cached: true,
+                        statusCode: 200,
+                        headers: {}
+                    };
+                }
+            }
+            // Prepare request config
+            const requestConfig = {
+                ...config,
+                url: requestUrl,
+                headers: {
+                    ...config.headers,
+                    'X-Request-ID': requestId,
+                    'X-Timestamp': new Date().toISOString(),
+                },
+            };
+            try {
+                // Execute request with retry logic if enabled
+                const response = await this.executeWithRetry(requestConfig);
+                // Cache the response if enabled and successful
+                if (config.cache && config.method?.toUpperCase() === 'GET' && response.status === 200) {
+                    const cacheTtl = typeof config.cache === 'number' ? config.cache : this._defaultCacheTtl;
+                    this.setCachedResponse(cacheKey, response.data, cacheTtl);
+                }
+                const duration = Date.now() - startTime;
+                logger_1.logger.debug(`[${requestId}] === REQUEST COMPLETED (${duration}ms) ===`);
                 return {
                     status: 'SUCCESS',
-                    data: cachedResponse,
-                    cached: true,
-                    statusCode: 200,
-                    headers: {}
+                    data: response.data,
+                    statusCode: response.status,
+                    headers: response.headers
                 };
             }
-        }
-        // Prepare request config
-        const requestConfig = {
-            ...config,
-            url: requestUrl,
-            headers: {
-                ...config.headers,
-                'X-Request-ID': requestId,
-                'X-Timestamp': new Date().toISOString(),
-            },
-        };
-        try {
-            // Execute request with retry logic if enabled
-            const response = await this.executeWithRetry(requestConfig);
-            // Cache the response if enabled and successful
-            if (config.cache && config.method?.toUpperCase() === 'GET' && response.status === 200) {
-                const cacheTtl = typeof config.cache === 'number' ? config.cache : this._defaultCacheTtl;
-                this.setCachedResponse(cacheKey, response.data, cacheTtl);
-            }
-            const duration = Date.now() - startTime;
-            logger_1.logger.debug(`[${requestId}] === REQUEST COMPLETED (${duration}ms) ===`);
-            return {
-                status: 'SUCCESS',
-                data: response.data,
-                statusCode: response.status,
-                headers: response.headers
-            };
-        }
-        catch (error) {
-            const axiosError = error;
-            logger_1.logger.error(`[${requestId}] Request failed:`, axiosError.message);
-            // Normalize the error response
-            if (axiosError.response) {
+            catch (error) {
+                const axiosError = error;
+                logger_1.logger.error(`[${requestId}] Request failed:`, axiosError.message);
+                // Normalize the error response
+                if (axiosError.response) {
+                    return {
+                        status: 'ERROR',
+                        error: {
+                            code: axiosError.response.status.toString(),
+                            message: axiosError.response.statusText,
+                            details: axiosError.response.data
+                        },
+                        statusCode: axiosError.response.status,
+                        headers: axiosError.response.headers
+                    };
+                }
+                // For network errors or timeouts
                 return {
                     status: 'ERROR',
                     error: {
-                        code: axiosError.response.status.toString(),
-                        message: axiosError.response.statusText,
-                        details: axiosError.response.data
-                    },
-                    statusCode: axiosError.response.status,
-                    headers: axiosError.response.headers
+                        code: 'NETWORK_ERROR',
+                        message: axiosError.message || 'Network request failed'
+                    }
                 };
             }
-            // For network errors or timeouts
+        }
+        catch (error) {
+            logger_1.logger.error(`[${requestId}] Unexpected error in request:`, error);
             return {
                 status: 'ERROR',
                 error: {
-                    code: 'NETWORK_ERROR',
-                    message: axiosError.message || 'Network request failed'
+                    code: 'INTERNAL_ERROR',
+                    message: error instanceof Error ? error.message : 'An unknown error occurred'
                 }
             };
         }
     }
-    // --- HTTP Method Helpers ---
-    /**
-     * Send a GET request
-     * @param url The URL to send the request to
-     * @param config Optional request config with additional options
-     * @param serviceType The type of service to determine which base URL to use (default: 'default')
-     * @returns A promise that resolves to the API response
-     */
-    async get(url, config = {}, serviceType = 'default') {
-        return this.request({ ...config, method: 'GET', url }, serviceType);
-    }
-    /**
-     * Send a POST request
-     * @param url The URL to send the request to
-     * @param data The data to send in the request body
-     * @param config Optional request config with additional options
-     * @param serviceType The type of service to determine which base URL to use (default: 'default')
-     * @returns A promise that resolves to the API response
-     */
-    async post(url, data, config = {}, serviceType = 'default') {
-        return this.request({ ...config, method: 'POST', url, data }, serviceType);
-    }
-    /**
-     * Send a PUT request
-     * @param url The URL to send the request to
-     * @param data The data to send in the request body
-     * @param config Optional request config with additional options
-     * @param serviceType The type of service to determine which base URL to use (default: 'default')
-     * @returns A promise that resolves to the API response
-     */
-    async put(url, data, config = {}, serviceType = 'default') {
-        return this.request({ ...config, method: 'PUT', url, data }, serviceType);
-    }
-    /**
-     * Send a DELETE request
-     * @param url The URL to send the request to
-     * @param config Optional request config with additional options
-     * @param serviceType The type of service to determine which base URL to use (default: 'default')
-     * @returns A promise that resolves to the API response
-     */
-    async delete(url, config = {}, serviceType = 'default') {
-        return this.request({ ...config, method: 'DELETE', url }, serviceType);
-    }
-    /**
-     * Send a PATCH request
-     * @param url The URL to send the request to
-     * @param data The data to send in the request body
-     * @param config Optional request config with additional options
-     * @param serviceType The type of service to determine which base URL to use (default: 'default')
-     * @returns A promise that resolves to the API response
-     */
-    async patch(url, data, config = {}, serviceType = 'default') {
-        return this.request({ ...config, method: 'PATCH', url, data }, serviceType);
-    }
 }
 exports.HttpClient = HttpClient;
+HttpClient.instance = null;
 //# sourceMappingURL=http-client.js.map

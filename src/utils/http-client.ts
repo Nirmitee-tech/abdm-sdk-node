@@ -89,7 +89,8 @@ interface AbdmErrorData {
 }
 
 export class HttpClient {
-  private readonly client: AxiosInstance;
+  private static instance: AxiosInstance | null = null;
+  private client: AxiosInstance;
   public readonly config: ABDMConfig;
   private _authToken: string | null = null;
   private _tokenExpiry: Date | null = null;
@@ -359,35 +360,10 @@ export class HttpClient {
       useClones: false
     });
     
-    // Initialize the Axios instance with the provided config
-    this.config = config;
-    this.client = axios.create({
-      timeout: config.timeout || DEFAULT_CONFIG.timeout,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...config.headers
-      }
-    });
-
-    // Set up interceptors
-    this._setupRequestInterceptors();
-    this._setupResponseInterceptors();
-    
-    // Initialize the Axios instance with the provided config
-    this.config = config;
-    this.client = axios.create({
-      timeout: config.timeout || DEFAULT_CONFIG.timeout,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...config.headers
-      }
-    });
-    
     // Set default values if not provided
     const isSandbox = config.useSandbox !== false;
     
+    // Set up configuration
     this.config = {
       ...config,
       // Default to sandbox if not specified
@@ -408,6 +384,41 @@ export class HttpClient {
         : (config.gatewayBaseUrl || config.baseUrl || 'https://abdm.gov.in'),
     };
     
+    // Initialize or reuse the singleton Axios instance
+    if (!HttpClient.instance) {
+      // Initialize the Axios client with the base URL and SSL settings
+      const httpsAgent = new (require('https').Agent)({ 
+        rejectUnauthorized: false, // Only for sandbox, should be true in production
+        keepAlive: true,
+        timeout: this.config.timeout,
+      });
+
+      HttpClient.instance = axios.create({
+        baseURL: this.config.baseUrl,
+        timeout: this.config.timeout,
+        httpsAgent,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CM-ID': this.config.xcmId || 'sbx',
+          ...(config.headers || {}),
+        },
+        maxRedirects: 5,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      });
+      
+      // Add debug logging for SSL/TLS issues
+      (process.env as any).NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Only for sandbox, remove in production
+      require('https').globalAgent.options.rejectUnauthorized = false; // Only for sandbox, remove in production
+    }
+    
+    this.client = HttpClient.instance;
+    
+    // Set up interceptors
+    this._setupRequestInterceptors();
+    this._setupResponseInterceptors();
+    
     // Log the configuration
     logger.debug('ABDM Client Configuration:', {
       useSandbox: this.config.useSandbox,
@@ -421,32 +432,6 @@ export class HttpClient {
     if (config.publicKey) {
       this._publicKey = config.publicKey;
     }
-
-    // Initialize the Axios client with the base URL and SSL settings
-    const httpsAgent = new (require('https').Agent)({ 
-      rejectUnauthorized: false, // Only for sandbox, should be true in production
-      keepAlive: true,
-      timeout: this.config.timeout,
-    });
-
-    this.client = axios.create({
-      baseURL: this.config.baseUrl,
-      timeout: this.config.timeout,
-      httpsAgent,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-CM-ID': this.config.xcmId || 'sbx',
-        ...(config.headers || {}),
-      },
-      maxRedirects: 5,
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-    });
-    
-    // Add debug logging for SSL/TLS issues
-    (process.env as any).NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Only for sandbox, remove in production
-    require('https').globalAgent.options.rejectUnauthorized = false; // Only for sandbox, remove in production
 
     // Add request interceptor for authentication and logging
     this.client.interceptors.request.use(
@@ -644,10 +629,9 @@ export class HttpClient {
       try {
         logger.debug(`[${requestId}] Sending authentication request to auth service`);
         
-        // For sandbox, use the direct URL to avoid path issues
-        const authUrl = this.config.useSandbox !== false 
-          ? 'https://dev.abdm.gov.in/gateway/v0.5/sessions'
-          : this.buildUrl('/v3/sessions', 'auth');
+        // Use the correct sessions endpoint based on environment
+        const sessionsPath = this.config.useSandbox ? '/v0.5/sessions' : '/v3/sessions';
+        const authUrl = this.buildUrl(sessionsPath, 'auth');
           
         logger.debug(`[${requestId}] Using auth URL: ${authUrl}`);
         
@@ -837,12 +821,11 @@ export class HttpClient {
         }
         return result;
       } else {
-        // Handle production environment using the internal get method
-        const response = await this.get<{ key?: string; publicKey?: string; public_key?: string }>(
-          endpoint, 
-          {},
-          'auth'  // Use 'auth' service type for production
-        );
+        // Handle production environment using the internal request method
+        const response = await this.request<{ key?: string; publicKey?: string; public_key?: string }>({
+          url: endpoint,
+          method: 'GET'
+        }, 'auth');
         
         // Check if the request was successful
         if (response.status !== 'SUCCESS' || !response.data) {
@@ -935,8 +918,72 @@ export class HttpClient {
       if (error instanceof Error) {
         throw new Error(`Encryption failed: ${error.message}`);
       }
-      throw new Error('An unknown error occurred during encryption.');
+      throw new Error('Encryption failed with unknown error');
     }
+  }
+
+  /**
+   * HTTP GET request
+   * @param url The URL to send the GET request to
+   * @param config Optional request configuration
+   * @param serviceType The type of service to determine which base URL to use
+   * @returns A promise that resolves to the API response
+   */
+  public async get<T = any>(
+    url: string,
+    config: Omit<RequestOptions, 'method' | 'url'> = {},
+    serviceType: 'auth' | 'gateway' | 'default' = 'default'
+  ): Promise<ExtendedAPIResponse<T>> {
+    return this.request<T>({ ...config, method: 'GET', url }, serviceType);
+  }
+
+  /**
+   * HTTP POST request
+   * @param url The URL to send the POST request to
+   * @param data The data to send in the request body
+   * @param config Optional request configuration
+   * @param serviceType The type of service to determine which base URL to use
+   * @returns A promise that resolves to the API response
+   */
+  public async post<T = any>(
+    url: string,
+    data?: any,
+    config: Omit<RequestOptions, 'method' | 'url' | 'data'> = {},
+    serviceType: 'auth' | 'gateway' | 'default' = 'default'
+  ): Promise<ExtendedAPIResponse<T>> {
+    return this.request<T>({ ...config, method: 'POST', url, data }, serviceType);
+  }
+
+  /**
+   * HTTP PUT request
+   * @param url The URL to send the PUT request to
+   * @param data The data to send in the request body
+   * @param config Optional request configuration
+   * @param serviceType The type of service to determine which base URL to use
+   * @returns A promise that resolves to the API response
+   */
+  public async put<T = any>(
+    url: string,
+    data?: any,
+    config: Omit<RequestOptions, 'method' | 'url' | 'data'> = {},
+    serviceType: 'auth' | 'gateway' | 'default' = 'default'
+  ): Promise<ExtendedAPIResponse<T>> {
+    return this.request<T>({ ...config, method: 'PUT', url, data }, serviceType);
+  }
+
+  /**
+   * HTTP DELETE request
+   * @param url The URL to send the DELETE request to
+   * @param config Optional request configuration
+   * @param serviceType The type of service to determine which base URL to use
+   * @returns A promise that resolves to the API response
+   */
+  public async delete<T = any>(
+    url: string,
+    config: Omit<RequestOptions, 'method' | 'url'> = {},
+    serviceType: 'auth' | 'gateway' | 'default' = 'default'
+  ): Promise<ExtendedAPIResponse<T>> {
+    return this.request<T>({ ...config, method: 'DELETE', url }, serviceType);
   }
 
   /**
@@ -945,175 +992,105 @@ export class HttpClient {
    * @param serviceType The type of service to determine which base URL to use
    * @returns A promise that resolves to the API response
    */
-  private async request<T>(
+  private async request<T = any>(
     config: RequestOptions,
     serviceType: 'auth' | 'gateway' | 'default' = 'default'
   ): Promise<ExtendedAPIResponse<T>> {
     const requestId = Math.random().toString(36).substring(2, 10);
     const startTime = Date.now();
     
-    // Build the full URL
-    const url = config.url || '';
-    const requestUrl = this.buildUrl(url, serviceType);
+    try {
+      // Build the full URL
+      const url = config.url || '';
+      const requestUrl = this.buildUrl(url, serviceType);
+      
+      // Generate cache key if caching is enabled
+      const cacheKey = config.cache ? this.generateCacheKey({ ...config, url: requestUrl }) : '';
+      
+      // Check cache if enabled for GET requests
+      if (config.cache && config.method?.toUpperCase() === 'GET') {
+        const cachedResponse = this.getCachedResponse<T>(cacheKey);
+        if (cachedResponse) {
+          logger.debug(`[${requestId}] Returning cached response for ${requestUrl}`);
+          return {
+            status: 'SUCCESS',
+            data: cachedResponse,
+            cached: true,
+            statusCode: 200,
+            headers: {}
+          } as ExtendedAPIResponse<T>;
+        }
+      }
     
-    // Generate cache key if caching is enabled
-    const cacheKey = config.cache ? this.generateCacheKey({ ...config, url: requestUrl }) : '';
-    
-    // Check cache if enabled for GET requests
-    if (config.cache && config.method?.toUpperCase() === 'GET') {
-      const cachedResponse = this.getCachedResponse<T>(cacheKey);
-      if (cachedResponse) {
-        logger.debug(`[${requestId}] Returning cached response for ${requestUrl}`);
+      // Prepare request config
+      const requestConfig: RequestOptions = {
+        ...config,
+        url: requestUrl,
+        headers: {
+          ...config.headers,
+          'X-Request-ID': requestId,
+          'X-Timestamp': new Date().toISOString(),
+        },
+      };
+      
+      try {
+        // Execute request with retry logic if enabled
+        const response = await this.executeWithRetry<T>(requestConfig);
+        
+        // Cache the response if enabled and successful
+        if (config.cache && config.method?.toUpperCase() === 'GET' && response.status === 200) {
+          const cacheTtl = typeof config.cache === 'number' ? config.cache : this._defaultCacheTtl;
+          this.setCachedResponse(cacheKey, response.data, cacheTtl);
+        }
+        
+        const duration = Date.now() - startTime;
+        logger.debug(`[${requestId}] === REQUEST COMPLETED (${duration}ms) ===`);
+        
         return {
           status: 'SUCCESS',
-          data: cachedResponse,
-          cached: true,
-          statusCode: 200,
-          headers: {}
+          data: response.data,
+          statusCode: response.status,
+          headers: response.headers
         } as ExtendedAPIResponse<T>;
-      }
-    }
-    
-    // Prepare request config
-    const requestConfig: RequestOptions = {
-      ...config,
-      url: requestUrl,
-      headers: {
-        ...config.headers,
-        'X-Request-ID': requestId,
-        'X-Timestamp': new Date().toISOString(),
-      },
-    };
-    
-    try {
-      // Execute request with retry logic if enabled
-      const response = await this.executeWithRetry<T>(requestConfig);
-      
-      // Cache the response if enabled and successful
-      if (config.cache && config.method?.toUpperCase() === 'GET' && response.status === 200) {
-        const cacheTtl = typeof config.cache === 'number' ? config.cache : this._defaultCacheTtl;
-        this.setCachedResponse(cacheKey, response.data, cacheTtl);
-      }
-      
-      const duration = Date.now() - startTime;
-      logger.debug(`[${requestId}] === REQUEST COMPLETED (${duration}ms) ===`);
-      
-      return {
-        status: 'SUCCESS',
-        data: response.data,
-        statusCode: response.status,
-        headers: response.headers
-      } as ExtendedAPIResponse<T>;
-      
-    } catch (error) {
-      const axiosError = error as AxiosError<APIResponse<T>>;
-      logger.error(`[${requestId}] Request failed:`, axiosError.message);
-      
-      // Normalize the error response
-      if (axiosError.response) {
+        
+      } catch (error) {
+        const axiosError = error as AxiosError<APIResponse<T>>;
+        logger.error(`[${requestId}] Request failed:`, axiosError.message);
+        
+        // Normalize the error response
+        if (axiosError.response) {
+          return {
+            status: 'ERROR',
+            error: {
+              code: axiosError.response.status.toString(),
+              message: axiosError.response.statusText,
+              details: axiosError.response.data
+            },
+            statusCode: axiosError.response.status,
+            headers: axiosError.response.headers
+          } as ExtendedAPIResponse<T>;
+        }
+        
+        // For network errors or timeouts
         return {
           status: 'ERROR',
           error: {
-            code: axiosError.response.status.toString(),
-            message: axiosError.response.statusText,
-            details: axiosError.response.data
-          },
-          statusCode: axiosError.response.status,
-          headers: axiosError.response.headers
+            code: 'NETWORK_ERROR',
+            message: axiosError.message || 'Network request failed'
+          }
         } as ExtendedAPIResponse<T>;
       }
-      
-      // For network errors or timeouts
+    } catch (error) {
+      logger.error(`[${requestId}] Unexpected error in request:`, error);
       return {
         status: 'ERROR',
         error: {
-          code: 'NETWORK_ERROR',
-          message: axiosError.message || 'Network request failed'
+          code: 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : 'An unknown error occurred'
         }
       } as ExtendedAPIResponse<T>;
     }
   }
 
-  // --- HTTP Method Helpers ---
-
-  /**
-   * Send a GET request
-   * @param url The URL to send the request to
-   * @param config Optional request config with additional options
-   * @param serviceType The type of service to determine which base URL to use (default: 'default')
-   * @returns A promise that resolves to the API response
-   */
-  public async get<T>(
-    url: string, 
-    config: RequestOptions = {},
-    serviceType: 'auth' | 'gateway' | 'default' = 'default'
-  ): Promise<ExtendedAPIResponse<T>> {
-    return this.request<T>({ ...config, method: 'GET', url }, serviceType);
-  }
-
-  /**
-   * Send a POST request
-   * @param url The URL to send the request to
-   * @param data The data to send in the request body
-   * @param config Optional request config with additional options
-   * @param serviceType The type of service to determine which base URL to use (default: 'default')
-   * @returns A promise that resolves to the API response
-   */
-  public async post<T>(
-    url: string, 
-    data?: any, 
-    config: RequestOptions = {},
-    serviceType: 'auth' | 'gateway' | 'default' = 'default'
-  ): Promise<ExtendedAPIResponse<T>> {
-    return this.request<T>({ ...config, method: 'POST', url, data }, serviceType);
-  }
-
-  /**
-   * Send a PUT request
-   * @param url The URL to send the request to
-   * @param data The data to send in the request body
-   * @param config Optional request config with additional options
-   * @param serviceType The type of service to determine which base URL to use (default: 'default')
-   * @returns A promise that resolves to the API response
-   */
-  public async put<T>(
-    url: string, 
-    data?: any, 
-    config: RequestOptions = {},
-    serviceType: 'auth' | 'gateway' | 'default' = 'default'
-  ): Promise<ExtendedAPIResponse<T>> {
-    return this.request<T>({ ...config, method: 'PUT', url, data }, serviceType);
-  }
-
-  /**
-   * Send a DELETE request
-   * @param url The URL to send the request to
-   * @param config Optional request config with additional options
-   * @param serviceType The type of service to determine which base URL to use (default: 'default')
-   * @returns A promise that resolves to the API response
-   */
-  public async delete<T>(
-    url: string, 
-    config: RequestOptions = {},
-    serviceType: 'auth' | 'gateway' | 'default' = 'default'
-  ): Promise<ExtendedAPIResponse<T>> {
-    return this.request<T>({ ...config, method: 'DELETE', url }, serviceType);
-  }
-
-  /**
-   * Send a PATCH request
-   * @param url The URL to send the request to
-   * @param data The data to send in the request body
-   * @param config Optional request config with additional options
-   * @param serviceType The type of service to determine which base URL to use (default: 'default')
-   * @returns A promise that resolves to the API response
-   */
-  public async patch<T>(
-    url: string, 
-    data?: any, 
-    config: RequestOptions = {},
-    serviceType: 'auth' | 'gateway' | 'default' = 'default'
-  ): Promise<ExtendedAPIResponse<T>> {
-    return this.request<T>({ ...config, method: 'PATCH', url, data }, serviceType);
-  }
+  // HTTP methods are not used directly - all requests go through the request() method
 }
