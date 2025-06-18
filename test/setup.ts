@@ -1,23 +1,20 @@
-// Global mocks and test setup
+// Global test setup
+import { TextEncoder, TextDecoder } from 'util';
+import { jest } from '@jest/globals';
 
-// Mock console methods to keep test output clean
+// Add TextEncoder and TextDecoder to global for tests
+(global as any).TextEncoder = TextEncoder;
+(global as any).TextDecoder = TextDecoder;
+
+// Mock console methods for testing
 const originalConsole = { ...console };
 
-global.console = {
+// Override console methods with mocks
+(global as any).console = {
   ...originalConsole,
+  debug: jest.fn(),
   log: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
-  debug: jest.fn(),
 };
-
-// Mock environment variables
-process.env.ABDM_CLIENT_ID = 'test-client-id';
-process.env.ABDM_CLIENT_SECRET = 'test-client-secret';
-process.env.ABDM_ENVIRONMENT = 'sandbox';
-
-// Add any other global test setup here
-
-// This file is run before each test file
-// You can add more setup code here as needed

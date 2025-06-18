@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ABDMClient = void 0;
-const m1_1 = require("../services/m1");
-const m2_1 = require("../services/m2");
-const m3_1 = require("../services/m3");
+const auth_service_1 = require("../services/auth.service");
+const health_service_1 = require("../services/health.service");
+const consent_service_1 = require("../services/consent.service");
 const http_client_1 = require("../utils/http-client");
 /**
  * Main client for interacting with the Ayushman Bharat Digital Mission (ABDM) APIs
@@ -35,16 +35,28 @@ class ABDMClient {
             useSandbox: true,
             ...config,
         };
-        // Set the baseURL based on the environment
+        // Set the baseURL based on the environment if not provided
         if (!effectiveConfig.baseUrl) {
             effectiveConfig.baseUrl = effectiveConfig.useSandbox
-                ? 'https://dev.abdm.gov.in'
-                : 'https://healthid.ndhm.gov.in';
+                ? 'https://abhasbx.abdm.gov.in' // Sandbox environment
+                : 'https://abdm.gov.in'; // Production environment
         }
-        this.http = new http_client_1.HttpClient(effectiveConfig);
-        this.m1 = new m1_1.M1Service(this.http);
-        this.m2 = new m2_1.M2Service(this.http);
-        this.m3 = new m3_1.M3Service(this.http);
+        // Set authBaseURL to baseURL if not provided
+        if (!effectiveConfig.authBaseUrl) {
+            effectiveConfig.authBaseUrl = effectiveConfig.baseUrl;
+        }
+        // Initialize HTTP client with configuration
+        this.http = new http_client_1.HttpClient({
+            clientId: effectiveConfig.clientId,
+            clientSecret: effectiveConfig.clientSecret,
+            baseUrl: effectiveConfig.baseUrl,
+            authBaseUrl: effectiveConfig.authBaseUrl,
+            useSandbox: effectiveConfig.useSandbox,
+        });
+        // Initialize services
+        this.auth = new auth_service_1.AuthService(this.http);
+        this.health = new health_service_1.HealthService(this.http);
+        this.consent = new consent_service_1.ConsentService(this.http);
     }
     /**
      * Set a new authentication token
@@ -111,35 +123,41 @@ class ABDMClient {
     async authenticate() {
         await this.http.authenticate();
     }
-    // M1 Service Methods
-    async getSession(sessionRequest) {
-        return this.m1.getSession(sessionRequest);
+    // Auth Service Methods
+    async generateAadhaarOTP(request) {
+        return this.auth.generateAadhaarOTP(request);
     }
-    async generateOTP(generateOtpRequest) {
-        return this.m1.generateOTP(generateOtpRequest);
-    }
-    async createAbhaIdByAadhaar(createAbhaRequest) {
-        return this.m1.createAbhaIdByAadhaar(createAbhaRequest);
+    async createAbhaIdByAadhaar(request) {
+        return this.auth.createAbhaIdByAadhaar(request);
     }
     async getPublicKey() {
-        return this.m1.getPublicKey();
+        return this.auth.getPublicKey();
     }
-    // M2 Service Methods
+    // Health Service Methods
     async addUpdateHealthFacilityServices(data) {
-        return this.m2.addUpdateHealthFacilityServices(data);
+        return this.health.addUpdateHealthFacilityServices(data);
     }
-    // M3 Service Methods
-    async getHealthInformation(requestId, authToken) {
-        return this.m3.getHealthInformation(requestId, authToken);
+    async getHealthFacility(facilityId) {
+        return this.health.getHealthFacility(facilityId);
+    }
+    async listHealthFacilities() {
+        return this.health.listHealthFacilities();
+    }
+    async updateHealthFacilityStatus(facilityId, active) {
+        return this.health.updateHealthFacilityStatus(facilityId, active);
+    }
+    // Consent Service Methods
+    async requestConsent(consentRequest, authToken) {
+        return this.consent.requestConsent(consentRequest, authToken);
     }
     async getConsentStatus(consentRequestId, authToken) {
-        return this.m3.getConsentStatus(consentRequestId, authToken);
+        return this.consent.getConsentStatus(consentRequestId, authToken);
     }
-    async requestConsent(consentRequest, authToken) {
-        return this.m3.requestConsent(consentRequest, authToken);
+    async requestHealthInformation(request, authToken) {
+        return this.consent.requestHealthInformation(request, authToken);
     }
-    async revokeConsent(consentId, authToken) {
-        return this.m3.revokeConsent(consentId, authToken);
+    async getHealthInformation(requestId, authToken) {
+        return this.consent.getHealthInformation(requestId, authToken);
     }
 }
 exports.ABDMClient = ABDMClient;

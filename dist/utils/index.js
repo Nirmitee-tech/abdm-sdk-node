@@ -1,7 +1,9 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.logger = void 0;
-const tslib_1 = require("tslib");
 var logger_1 = require("./logger");
-Object.defineProperty(exports, "logger", { enumerable: true, get: function () { return tslib_1.__importDefault(logger_1).default; } });
+Object.defineProperty(exports, "logger", { enumerable: true, get: function () { return __importDefault(logger_1).default; } });
 //# sourceMappingURL=index.js.map

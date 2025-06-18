@@ -5,11 +5,37 @@
 // Common types
 export * from './common';
 
-// ABHA specific types
-export * from './m1/index';
+// Authentication types
+export type {
+  AadhaarOtpResponse,
+  CreateAbhaRequest,
+  CreateAbhaResponse,
+  GenerateAadhaarOtpRequest,
+  GenerateOtpRequest,
+  GenerateOtpResponse
+} from './auth';
 
-// Health Facility types
-export * from './m2/index';
+// Health service types
+export type {
+  ABHAProfileResponse,
+  ConsentRequest,
+  ConsentResponse,
+  FetchRecordsOptions,
+  HealthFacilityData,
+  HealthFacilityRequest,
+  HealthFacilityResponse,
+  HealthRecord,
+  HealthRecordsResponse,
+  M2ABHAProfileData
+} from './health';
 
-// Bridge Service types
-export * from './m3/index';
+// Consent service types
+export type {
+  BridgeServiceRegistrationRequest,
+  BridgeServiceResponse,
+  BridgeServicesResponse,
+  ConsentStatusResponse,
+  HealthInformationRequest,
+  HealthInformationResponse
+} from './consent';
+

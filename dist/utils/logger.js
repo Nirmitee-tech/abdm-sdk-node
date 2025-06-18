@@ -1,10 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.logger = void 0;
-const tslib_1 = require("tslib");
-const fs_1 = tslib_1.__importDefault(require("fs"));
-const path_1 = tslib_1.__importDefault(require("path"));
-const pino_1 = tslib_1.__importDefault(require("pino"));
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
+const pino_1 = __importDefault(require("pino"));
 // Create logs directory if it doesn't exist
 const logDir = path_1.default.join(process.cwd(), 'logs');
 if (!fs_1.default.existsSync(logDir)) {

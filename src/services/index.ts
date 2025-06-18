@@ -1,3 +1,3 @@
-export * from './m1/m1.service';
-export * from './m2/m2.service';
-export * from './m3/m3.service';
+export * from './auth.service';
+export * from './health.service';
+export * from './consent.service';

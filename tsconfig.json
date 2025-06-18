@@ -1,16 +1,12 @@
 {
   "compilerOptions": {
-    /* Basic Options */
     "target": "es2020",
-    "module": "Node16",
+    "module": "commonjs",
     "lib": ["es2020"],
-    "moduleResolution": "node16",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
-
-    /* Strict Type-Checking */
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -23,43 +19,28 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-
-    /* Module Resolution */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@": ["./src"]
+      "@/*": ["./src/*"]
     },
     "typeRoots": [
-      "./node_modules/@types",
-      "./src/types"
+      "./node_modules/@types"
     ],
-    "types": ["node"],
+    "types": ["node", "jest"],
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-
-    /* Emit */
+    "sourceMap": true,
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "ts-node": {
+    "files": true
+  },
+  "compilerOptionsForTests": {
+    "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-
-    /* Additional Checks */
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "importHelpers": true
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "test-dist",
-    "examples",
-    "**/__tests__/**/*",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "**/*.e2e-test.ts"
-  ]
+    "rootDir": "./src"
+  }
 }

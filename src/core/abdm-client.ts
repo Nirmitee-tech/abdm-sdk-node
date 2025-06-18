@@ -1,10 +1,20 @@
-import { M1Service } from '../services/m1';
-import { M2Service } from '../services/m2';
-import { M3Service } from '../services/m3';
+import { AuthService } from '../services/auth.service';
+import { HealthService } from '../services/health.service';
+import { ConsentService } from '../services/consent.service';
 import type { ABDMConfig, APIResponse } from '../types/common';
-import type { SessionRequest, GenerateOtpRequest, GenerateOtpResponse, CreateAbhaRequest, CreateAbhaResponse } from '../types/m1/m1';
-import type { HealthFacilityRequest, HealthFacilityResponse } from '../types/m2/m2';
-import type { HealthInformationResponse, ConsentStatusResponse, M3ConsentRequest } from '../types/m3/m3';
+import type {
+  CreateAbhaRequest,
+  CreateAbhaResponse,
+  GenerateAadhaarOtpRequest,
+  AadhaarOtpResponse
+} from '../types/auth';
+import type { HealthFacilityRequest, HealthFacilityResponse } from '../types/health';
+import type { 
+  HealthInformationResponse, 
+  ConsentStatusResponse,
+  HealthInformationRequest 
+} from '../types/consent';
+import type { ConsentRequest } from '../types/health';
 import { HttpClient } from '../utils/http-client';
 
 /**
@@ -12,9 +22,9 @@ import { HttpClient } from '../utils/http-client';
  */
 export class ABDMClient {
   private http: HttpClient;
-  private m1: M1Service;
-  private m2: M2Service;
-  private m3: M3Service;
+  public auth: AuthService;
+  public health: HealthService;
+  public consent: ConsentService;
 
   /**
    * Create a new ABDM client
@@ -44,17 +54,31 @@ export class ABDMClient {
       ...config,
     };
 
-    // Set the baseURL based on the environment
+    // Set the baseURL based on the environment if not provided
     if (!effectiveConfig.baseUrl) {
       effectiveConfig.baseUrl = effectiveConfig.useSandbox 
-        ? 'https://dev.abdm.gov.in' 
-        : 'https://healthid.ndhm.gov.in';
+        ? 'https://abhasbx.abdm.gov.in' // Sandbox environment
+        : 'https://abdm.gov.in'; // Production environment
+    }
+    
+    // Set authBaseURL to baseURL if not provided
+    if (!effectiveConfig.authBaseUrl) {
+      effectiveConfig.authBaseUrl = effectiveConfig.baseUrl;
     }
 
-    this.http = new HttpClient(effectiveConfig);
-    this.m1 = new M1Service(this.http);
-    this.m2 = new M2Service(this.http);
-    this.m3 = new M3Service(this.http);
+    // Initialize HTTP client with configuration
+    this.http = new HttpClient({
+      clientId: effectiveConfig.clientId,
+      clientSecret: effectiveConfig.clientSecret,
+      baseUrl: effectiveConfig.baseUrl,
+      authBaseUrl: effectiveConfig.authBaseUrl,
+      useSandbox: effectiveConfig.useSandbox,
+    });
+
+    // Initialize services
+    this.auth = new AuthService(this.http);
+    this.health = new HealthService(this.http);
+    this.consent = new ConsentService(this.http);
   }
 
   /**
@@ -133,39 +157,56 @@ export class ABDMClient {
     await this.http.authenticate();
   }
 
-  // M1 Service Methods
-
-  public async generateOTP(generateOtpRequest: GenerateOtpRequest): Promise<APIResponse<GenerateOtpResponse>> {
-    return this.m1.generateOTP(generateOtpRequest);
+  // Auth Service Methods
+  public async generateAadhaarOTP(request: GenerateAadhaarOtpRequest): Promise<APIResponse<AadhaarOtpResponse>> {
+    return this.auth.generateAadhaarOTP(request);
   }
 
-  public async createAbhaIdByAadhaar(createAbhaRequest: CreateAbhaRequest): Promise<APIResponse<CreateAbhaResponse>> {
-    return this.m1.createAbhaIdByAadhaar(createAbhaRequest);
+  public async createAbhaIdByAadhaar(request: CreateAbhaRequest): Promise<APIResponse<CreateAbhaResponse>> {
+    return this.auth.createAbhaIdByAadhaar(request);
   }
 
   public async getPublicKey(): Promise<APIResponse<{ key: string }>> {
-    return this.m1.getPublicKey();
+    return this.auth.getPublicKey();
   }
 
-  // M2 Service Methods
+  // Health Service Methods
   public async addUpdateHealthFacilityServices(data: HealthFacilityRequest): Promise<HealthFacilityResponse> {
-    return this.m2.addUpdateHealthFacilityServices(data);
+    return this.health.addUpdateHealthFacilityServices(data);
   }
 
-  // M3 Service Methods
-  public async getHealthInformation(requestId: string, authToken: string): Promise<HealthInformationResponse> {
-    return this.m3.getHealthInformation(requestId, authToken);
+  public async getHealthFacility(facilityId: string): Promise<HealthFacilityResponse> {
+    return this.health.getHealthFacility(facilityId);
+  }
+
+  public async listHealthFacilities(): Promise<HealthFacilityResponse> {
+    return this.health.listHealthFacilities();
+  }
+
+  public async updateHealthFacilityStatus(facilityId: string, active: boolean): Promise<APIResponse<{ success: boolean }>> {
+    return this.health.updateHealthFacilityStatus(facilityId, active);
+  }
+
+  // Consent Service Methods
+  public async requestConsent(consentRequest: ConsentRequest, authToken: string): Promise<{ requestId: string }> {
+    return this.consent.requestConsent(consentRequest, authToken);
   }
 
   public async getConsentStatus(consentRequestId: string, authToken: string): Promise<ConsentStatusResponse> {
-    return this.m3.getConsentStatus(consentRequestId, authToken);
+    return this.consent.getConsentStatus(consentRequestId, authToken);
   }
 
-  public async requestConsent(consentRequest: M3ConsentRequest, authToken: string): Promise<{ requestId: string }> {
-    return this.m3.requestConsent(consentRequest, authToken);
+  public async requestHealthInformation(
+    request: HealthInformationRequest,
+    authToken: string
+  ): Promise<{ requestId: string }> {
+    return this.consent.requestHealthInformation(request, authToken);
   }
 
-  public async revokeConsent(consentId: string, authToken: string): Promise<{ success: boolean }> {
-    return this.m3.revokeConsent(consentId, authToken);
+  public async getHealthInformation(
+    requestId: string,
+    authToken: string
+  ): Promise<HealthInformationResponse> {
+    return this.consent.getHealthInformation(requestId, authToken);
   }
 }
