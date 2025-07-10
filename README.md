@@ -36,38 +36,6 @@ pnpm add @nirmitee/abdm-sdk-node
 
 ## 🚀 Quick Start
 
-### Basic Setup
-
-```typescript
-import { ABDMClient } from '@nirmitee/abdm-sdk-node';
-
-// Initialize the client
-const client = new ABDMClient({
-  clientId: 'your-client-id',
-  clientSecret: 'your-client-secret',
-  // baseUrl: 'https://dev.abdm.gov.in', // Use appropriate environment URL
-  // other optional config
-});
-
-// Example: Generate Aadhaar OTP
-async function generateAadhaarOTP() {
-  try {
-    const response = await client.auth.generateAadhaarOTP({
-      aadhaar: '123456789012',
-      txnId: 'unique-transaction-id-123'
-    });
-    console.log('Aadhaar OTP sent:', response);
-    return response;
-  } catch (error) {
-    console.error('Error generating Aadhaar OTP:', error);
-    throw error;
-  }
-}
-
-// Execute the function
-generateAadhaarOTP();
-```
-
 ## 🧑‍💻 Usage Example: Generate and Verify Aadhaar OTP
 
 ```typescript
