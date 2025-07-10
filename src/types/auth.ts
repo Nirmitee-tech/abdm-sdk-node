@@ -60,6 +60,45 @@ export interface AadhaarOtpResponse {
   message: string;
 }
 
+export interface VerifyAadhaarOtpRequest {
+  /**
+   * The transaction ID from the OTP generation step
+   */
+  txnId: string;
+  
+  /**
+   * The OTP value received by the user
+   */
+  otpValue: string;
+  
+  /**
+   * The Aadhaar number (optional, for additional verification)
+   */
+  aadhaarNumber?: string;
+
+  /**
+   * The mobile number for ABHA communication (optional)
+   */
+  mobile?: string;
+}
+
+export interface VerifyAadhaarOtpResponse {
+  /**
+   * The transaction ID for this OTP verification
+   */
+  txnId: string;
+  
+  /**
+   * The message indicating OTP verification result
+   */
+  message: string;
+  
+  /**
+   * Whether the OTP verification was successful
+   */
+  isSuccess: boolean;
+}
+
 export interface CreateAbhaRequest {
   /**
    * The transaction ID from the OTP generation step

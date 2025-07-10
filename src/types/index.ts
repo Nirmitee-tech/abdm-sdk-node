@@ -12,7 +12,9 @@ export type {
   CreateAbhaResponse,
   GenerateAadhaarOtpRequest,
   GenerateOtpRequest,
-  GenerateOtpResponse
+  GenerateOtpResponse,
+  VerifyAadhaarOtpRequest,
+  VerifyAadhaarOtpResponse
 } from './auth';
 
 // Health service types

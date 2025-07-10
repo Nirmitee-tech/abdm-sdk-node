@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -7,6 +40,8 @@ exports.HttpClient = void 0;
 const axios_1 = __importDefault(require("axios"));
 const node_cache_1 = __importDefault(require("node-cache"));
 const request_utils_1 = require("./request-utils");
+const crypto = __importStar(require("crypto"));
+const semver = __importStar(require("semver"));
 const logger_1 = require("./logger");
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -21,6 +56,14 @@ const DEFAULT_CONFIG = {
         maxDelay: 10000,
     }
 };
+/**
+ * Converts a base64-encoded public key to PEM format for Node.js crypto
+ */
+function base64ToPem(base64Key) {
+    const cleanBase64 = base64Key.replace(/\s+/g, '');
+    const lines = cleanBase64.match(/.{1,64}/g) || [];
+    return `-----BEGIN PUBLIC KEY-----\n${lines.join('\n')}\n-----END PUBLIC KEY-----\n`;
+}
 class HttpClient {
     /**
      * Get a cached response if available
@@ -229,6 +272,22 @@ class HttpClient {
         this._publicKey = null;
         this._privateKey = null;
         this._keyId = null;
+        // Node.js/OpenSSL version check
+        const nodeVersion = process.versions.node;
+        const opensslVersion = process.versions.openssl;
+        const minNodeVersion = '16.0.0';
+        if (!semver.satisfies(nodeVersion, `>=${minNodeVersion}`)) {
+            logger_1.logger.error(`ABDM SDK requires Node.js ${minNodeVersion} or higher. Detected: ${nodeVersion}`);
+            throw new Error(`ABDM SDK requires Node.js ${minNodeVersion} or higher. Detected: ${nodeVersion}`);
+        }
+        // Warn if OpenSSL version is missing or too old
+        if (!opensslVersion || !/^1\.|^3\./.test(opensslVersion)) {
+            logger_1.logger.warn(`ABDM SDK requires OpenSSL 1.x or 3.x. Detected: ${opensslVersion}`);
+        }
+        // Warn if insecure SSL settings are used in production
+        if (process.env.NODE_ENV === 'production' && process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+            logger_1.logger.warn('Insecure SSL settings detected in production! Do not set NODE_TLS_REJECT_UNAUTHORIZED=0 in production.');
+        }
         // Initialize cache with default TTL of 5 minutes and check period of 1 minute
         this._defaultCacheTtl = DEFAULT_CONFIG.cacheTtl;
         this._defaultRetryConfig = {
@@ -838,6 +897,68 @@ class HttpClient {
                     message: error instanceof Error ? error.message : 'An unknown error occurred'
                 }
             };
+        }
+    }
+    /**
+     * Encrypts data using the ABDM public key fetched from the API.
+     * @param data The string data to encrypt.
+     * @returns The Base64-encoded encrypted string.
+     * @throws {Error} If encryption fails or public key is not available
+     */
+    async encrypt(data) {
+        try {
+            // Always fetch the public key fresh from the API before encryption
+            const publicKeyResponse = await this.getPublicKey();
+            if (!publicKeyResponse) {
+                throw new Error('Failed to obtain public key for encryption');
+            }
+            const publicKey = publicKeyResponse.key;
+            // Determine if the key is already in PEM format or needs conversion
+            let pemKey;
+            if (publicKey.includes('-----BEGIN PUBLIC KEY-----')) {
+                // Key is already in PEM format
+                pemKey = publicKey;
+            }
+            else {
+                // Key is in base64 format, convert to PEM
+                pemKey = base64ToPem(publicKey);
+            }
+            let keyObject;
+            try {
+                keyObject = crypto.createPublicKey(pemKey);
+            }
+            catch (err) {
+                console.error('[ENCRYPTION ERROR] Failed to create public key object:', err instanceof Error ? err.message : err);
+                console.error('[ENCRYPTION ERROR] Public key format check:', publicKey.includes('-----BEGIN PUBLIC KEY-----') ? 'PEM' : 'Base64');
+                console.error('[ENCRYPTION ERROR] Public key (first 100 chars):', publicKey.slice(0, 100) + '...');
+                throw new Error('Failed to create public key object: ' + (err instanceof Error ? err.message : err));
+            }
+            const buffer = Buffer.from(data, 'utf8');
+            let encrypted;
+            try {
+                encrypted = crypto.publicEncrypt({
+                    key: keyObject,
+                    padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+                    oaepHash: 'sha1', // Use SHA-1 as required by ABDM
+                }, buffer);
+            }
+            catch (err) {
+                console.error('[ENCRYPTION ERROR] Failed to encrypt:', err instanceof Error ? err.message : err);
+                console.error('[ENCRYPTION ERROR] Public key format check:', publicKey.includes('-----BEGIN PUBLIC KEY-----') ? 'PEM' : 'Base64');
+                console.error('[ENCRYPTION ERROR] Public key (first 100 chars):', publicKey.slice(0, 100) + '...');
+                throw new Error('Encryption failed: ' + (err instanceof Error ? err.message : err));
+            }
+            return encrypted.toString('base64');
+        }
+        catch (error) {
+            if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
+                // eslint-disable-next-line no-console
+                console.error('Encryption failed:', error);
+            }
+            if (error instanceof Error) {
+                throw new Error(`Encryption failed: ${error.message}`);
+            }
+            throw new Error('Encryption failed with unknown error');
         }
     }
 }

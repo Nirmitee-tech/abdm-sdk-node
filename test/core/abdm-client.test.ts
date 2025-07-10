@@ -1,6 +1,7 @@
 import { ABDMClient } from '../../src/core/abdm-client';
 import dotenv from 'dotenv';
 import path from 'path';
+import readlineSync from 'readline-sync';
 
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -120,43 +121,139 @@ describe('ABDM Authentication Test', () => {
     console.log('Successfully retrieved public key');
   }, 30000); // 30 seconds timeout for the public key fetch
 
-  it('should generate Aadhaar OTP successfully', async () => {
+
+  it('should complete Aadhaar OTP flow: generate and verify', async () => {
     // First authenticate to get a valid token
     await client.authenticate();
-    
-    // Test data
-    const testAadhaar = '123456789012'; // 12-digit test Aadhaar number
-    // const txnId = `TEST-${Date.now()}`; // Generate a unique transaction ID for testing
-    
-    // Act - Call generateAadhaarOTP
-    const response = await client.generateAadhaarOTP({
-      aadhaarNumber: testAadhaar,
+
+    // Prompt for manual input
+    console.log('\n=== Manual Input Required ===');
+    const aadhaarNumber = readlineSync.question('Enter the Aadhaar number to use: ');
+    const mobileNumber = readlineSync.question('Enter your mobile number: ');
+    console.log('=== End Manual Input ===\n');
+
+    if (!aadhaarNumber || !mobileNumber) {
+      throw new Error('Aadhaar number and mobile number are required for OTP generation');
+    }
+
+    // Step 1: Generate OTP
+    const generateResponse = await client.generateAadhaarOTP({
+      aadhaarNumber,
       txnId: "",
       requesterId: 'ABHA_TEST'
     });
+    console.log('Generate OTP response:', JSON.stringify(generateResponse, null, 2));
+    expect(generateResponse).toBeDefined();
+    if (generateResponse.status === 'ERROR') {
+      throw new Error(`Generate OTP failed: ${JSON.stringify(generateResponse, null, 2)}`);
+    }
+    expect(generateResponse.status).toBe('SUCCESS');
+    expect(generateResponse.data).toBeDefined();
+    expect(typeof generateResponse.data?.txnId).toBe('string');
+    expect(generateResponse.data?.txnId.length).toBeGreaterThan(0);
+    const txnId = generateResponse.data!.txnId;
+    console.log('Generated transaction ID:', txnId);
 
-   process.stdout.write(JSON.stringify(response))
-    
-    // Assert - Verify the response structure
-    expect(response).toBeDefined();
-    expect(response.status).toBe('SUCCESS');
-    expect(response.data).toBeDefined();
-    
-    // Verify the response data structure
-    if (response.data) {
-      expect(typeof response.data.txnId).toBe('string');
-      expect(response.data.txnId.length).toBeGreaterThan(0);
-      expect(typeof response.data.message).toBe('string');
-      expect(response.data.message).toContain('OTP sent');
+    // Prompt for OTP
+    const testOtp = readlineSync.question('Enter the OTP received on your mobile: ');
+    if (!testOtp) {
+      throw new Error('OTP is required for verification');
+    }
+
+    // Step 2: Verify OTP
+    const verifyResponse = await client.verifyAadhaarOTP({
+      txnId,
+      otpValue: testOtp,
+      mobile: mobileNumber
+    });
+    console.log('Aadhaar OTP verification response:', JSON.stringify(verifyResponse, null, 2));
+    if (verifyResponse.status === 'ERROR') {
+      throw new Error(`API returned error: ${JSON.stringify(verifyResponse, null, 2)}`);
+    }
+    expect(verifyResponse).toBeDefined();
+    expect(verifyResponse.status).toBe('SUCCESS');
+    expect(verifyResponse.data).toBeDefined();
+    if (verifyResponse.data) {
+      expect(typeof verifyResponse.data.txnId).toBe('string');
+      expect(verifyResponse.data.txnId.length).toBeGreaterThan(0);
+      expect(typeof verifyResponse.data.message).toBe('string');
     } else {
       throw new Error('No data in response');
     }
-    
-    // Log the response (without sensitive data)
-    console.log('Aadhaar OTP response:', {
-      status: response.status,
-      txnId: response.data?.txnId,
-      message: response.data?.message
+    console.log('Aadhaar OTP verification response:', {
+      status: verifyResponse.status,
+      txnId: verifyResponse.data?.txnId,
+      message: verifyResponse.data?.message,
+      isSuccess: verifyResponse.data?.isSuccess
     });
-  }, 30000); // 30 seconds timeout for the OTP generation
+  }, 60000); // 60 seconds timeout for the full flow
+
+
+  it('should handle invalid transaction ID error', async () => {
+    // First authenticate to get a valid token
+    await client.authenticate();
+    
+    // Test data with invalid transaction ID
+    const invalidTxnId = ''; // Empty transaction ID
+    const testOtp = '123456'; // 6-digit test OTP for sandbox
+    
+    // Act & Assert - Call verifyAadhaarOTP with invalid transaction ID
+    await expect(client.verifyAadhaarOTP({
+      txnId: invalidTxnId,
+      otpValue: testOtp,
+      mobile: '9999999999' // Test mobile number for sandbox
+    })).rejects.toThrow('Transaction ID is required');
+  }, 10000); // 10 seconds timeout for error handling
+
+  it('should handle invalid OTP value error', async () => {
+    // First authenticate to get a valid token
+    await client.authenticate();
+    
+    // Test data with invalid OTP value
+    const testTxnId = `TEST-TXN-${Date.now()}`; // Generate a unique transaction ID for testing
+    const invalidOtp = ''; // Empty OTP value
+    
+    // Act & Assert - Call verifyAadhaarOTP with invalid OTP value
+    await expect(client.verifyAadhaarOTP({
+      txnId: testTxnId,
+      otpValue: invalidOtp,
+      mobile: '9999999999' // Test mobile number for sandbox
+    })).rejects.toThrow('OTP value is required');
+  }, 10000); // 10 seconds timeout for error handling
+
+  it('should handle missing authentication error', async () => {
+    // Create a new client instance without authentication
+    const unauthenticatedClient = new ABDMClient(config);
+    
+    // Test data
+    const testTxnId = `TEST-TXN-${Date.now()}`; // Generate a unique transaction ID for testing
+    const testOtp = '123456'; // 6-digit test OTP for sandbox
+    
+    // Act & Assert - Call verifyAadhaarOTP without authentication
+    await expect(unauthenticatedClient.verifyAadhaarOTP({
+      txnId: testTxnId,
+      otpValue: testOtp,
+      mobile: '9999999999' // Test mobile number for sandbox
+    })).rejects.toThrow('Not authenticated');
+  }, 10000); // 10 seconds timeout for error handling
+
+  it('should handle production environment error', async () => {
+    // Create a client configured for production environment
+    const productionConfig = {
+      ...config,
+      useSandbox: false
+    };
+    const productionClient = new ABDMClient(productionConfig);
+    
+    // Test data
+    const testTxnId = `TEST-TXN-${Date.now()}`; // Generate a unique transaction ID for testing
+    const testOtp = '123456'; // 6-digit test OTP for sandbox
+    
+    // Act & Assert - Call verifyAadhaarOTP in production environment
+    await expect(productionClient.verifyAadhaarOTP({
+      txnId: testTxnId,
+      otpValue: testOtp,
+      mobile: '9999999999' // Test mobile number for sandbox
+    })).rejects.toThrow('Only sandbox environment is currently supported');
+  }, 10000); // 10 seconds timeout for error handling
 });

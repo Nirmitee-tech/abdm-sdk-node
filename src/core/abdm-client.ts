@@ -6,7 +6,9 @@ import type {
   CreateAbhaRequest,
   CreateAbhaResponse,
   GenerateAadhaarOtpRequest,
-  AadhaarOtpResponse
+  AadhaarOtpResponse,
+  VerifyAadhaarOtpRequest,
+  VerifyAadhaarOtpResponse
 } from '../types/auth';
 import type { HealthFacilityRequest, HealthFacilityResponse } from '../types/health';
 import type { 
@@ -189,6 +191,36 @@ export class ABDMClient {
 
   public async createAbhaIdByAadhaar(request: CreateAbhaRequest): Promise<APIResponse<CreateAbhaResponse>> {
     return this.auth.createAbhaIdByAadhaar(request);
+  }
+
+  /**
+   * Verifies an OTP for Aadhaar-based authentication
+   * @param request The request containing transaction ID and OTP value
+   * @returns A promise that resolves to the OTP verification response
+   * @throws {Error} If the request fails or the environment is not supported
+   */
+  public async verifyAadhaarOTP(request: VerifyAadhaarOtpRequest): Promise<APIResponse<VerifyAadhaarOtpResponse>> {
+    try {
+      // Log the attempt to verify Aadhaar OTP (without logging sensitive data)
+      console.debug('Verifying Aadhaar OTP...');
+      
+      // Delegate to the auth service implementation
+      const response = await this.auth.verifyAadhaarOTP(request);
+      
+      // Log success (without sensitive data)
+      console.debug('Successfully verified Aadhaar OTP');
+      
+      return response;
+    } catch (error) {
+      // Log the error with context
+      console.error('Failed to verify Aadhaar OTP:', error);
+      
+      // Re-throw the error with consistent formatting
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Failed to verify Aadhaar OTP due to an unknown error');
+    }
   }
 
   /**

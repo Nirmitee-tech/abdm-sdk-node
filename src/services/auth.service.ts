@@ -1,5 +1,5 @@
 import { HttpClient } from '../utils/http-client';
-import { AadhaarOtpResponse, CreateAbhaRequest, CreateAbhaResponse, GenerateAadhaarOtpRequest } from '../types/auth';
+import { AadhaarOtpResponse, CreateAbhaRequest, CreateAbhaResponse, GenerateAadhaarOtpRequest, VerifyAadhaarOtpRequest, VerifyAadhaarOtpResponse } from '../types/auth';
 import { APIResponse } from '../types/common';
 
 interface Logger {
@@ -136,6 +136,120 @@ export class AuthService {
     }
 
     return response;
+  }
+
+  /**
+   * Verifies an OTP for Aadhaar-based authentication
+   * @param request The request containing transaction ID and OTP value
+   * @returns A promise that resolves to the OTP verification response
+   * @throws {Error} If the request fails or the environment is not supported
+   */
+  public async verifyAadhaarOTP(request: VerifyAadhaarOtpRequest): Promise<APIResponse<VerifyAadhaarOtpResponse>> {
+    this.logger.debug('Verifying Aadhaar OTP');
+
+    try {
+      const isSandbox = this.httpClient?.getConfig?.()?.useSandbox !== false;
+      
+      if (!isSandbox) {
+        throw new Error('Only sandbox environment is currently supported');
+      }
+
+      // Validate required fields
+      if (!request.txnId?.trim()) {
+        throw new Error('Transaction ID is required');
+      }
+
+      if (!request.otpValue?.trim()) {
+        throw new Error('OTP value is required');
+      }
+
+      // Use the correct endpoint for OTP verification
+      const verifyOtpUrl = '/abha/api/v3/enrollment/enrol/byAadhaar';
+      
+      // Get the auth token
+      const authToken = this.httpClient?.getAuthToken?.();
+      
+      if (!authToken) {
+        throw new Error('Not authenticated. Please authenticate first.');
+      }
+      
+      try {
+        // Encrypt the OTP value using the httpClient's encrypt method
+        this.logger.debug('Encrypting OTP value...');
+        const encryptedOtp = await this.httpClient.encrypt(request.otpValue);
+        
+        // Prepare the request payload according to ABDM API specs
+        const payload = {
+          authData: {
+            authMethods: ['otp'],
+            otp: {
+              txnId: request.txnId,
+              otpValue: encryptedOtp,
+              mobile: request.mobile || ''
+            }
+          },
+          consent: {
+            code: 'abha-enrollment',
+            version: '1.4'
+          }
+        };
+      
+        this.logger.debug('Aadhaar OTP verification request payload (sensitive data redacted):', {
+          ...payload,
+          authData: {
+            ...payload.authData,
+            otp: {
+              ...payload.authData.otp,
+              otpValue: '[ENCRYPTED]'
+            }
+          }
+        });
+        
+        // Make the API call to verify OTP
+        this.logger.debug('Sending Aadhaar OTP verification request...');
+        const response = await this.httpClient.post<VerifyAadhaarOtpResponse>(
+          verifyOtpUrl, 
+          payload, 
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          },
+          'default' // Use default base URL for sandbox
+        );
+        
+        this.logger.debug('Aadhaar OTP verification response received:', response);
+        
+        // Log the full response for debugging
+        console.log('Full OTP verification response:', JSON.stringify(response, null, 2));
+
+        return response;
+      } catch (error: any) {
+        // Log detailed error information
+        if (error.response) {
+          this.logger.error('Aadhaar OTP verification API Error Response:', {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data
+          });
+        } else if (error.request) {
+          this.logger.error('No response received from Aadhaar OTP verification API');
+        } else {
+          this.logger.error('Error in Aadhaar OTP verification process:', error.message);
+        }
+        if (error instanceof Error) {
+          throw new Error(`Failed to verify Aadhaar OTP: ${error.message}`);
+        }
+        throw new Error('Failed to verify Aadhaar OTP due to an unknown error');
+      }
+    } catch (error) {
+      this.logger.error('Unexpected error in verifyAadhaarOTP:', error);
+      if (error instanceof Error) {
+        throw new Error(`Failed to verify Aadhaar OTP: ${error.message}`);
+      }
+      throw new Error('Failed to verify Aadhaar OTP due to an unknown error');
+    }
   }
 }
 
