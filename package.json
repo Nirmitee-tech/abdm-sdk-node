@@ -54,7 +54,8 @@
   },
   "homepage": "https://github.com/Nirmitee-tech/abdm-sdk-node#readme",
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=16.0.0",
+    "openssl": ">=1.1.1"
   },
   "peerDependencies": {
     "typescript": ">=4.0.0"
@@ -63,7 +64,8 @@
     "axios": "^1.6.7",
     "node-cache": "5.1.2",
     "pino": "8.19.0",
-    "pino-pretty": "10.3.0"
+    "pino-pretty": "10.3.0",
+    "semver": "^7.5.4"
   },
   "devDependencies": {
     "@types/dotenv": "6.1.1",

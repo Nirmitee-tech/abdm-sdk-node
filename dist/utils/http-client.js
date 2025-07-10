@@ -1,43 +1,9 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HttpClient = void 0;
-const crypto = __importStar(require("crypto"));
 const axios_1 = __importDefault(require("axios"));
 const node_cache_1 = __importDefault(require("node-cache"));
 const request_utils_1 = require("./request-utils");
@@ -87,7 +53,7 @@ class HttpClient {
         ];
         // Create a hash of the key parts to ensure it's a valid cache key
         const keyString = keyParts.join('|');
-        return crypto.createHash('md5').update(keyString).digest('hex');
+        return keyString; // No crypto.createHash
     }
     /**
      * Execute a request with retry logic
@@ -97,8 +63,8 @@ class HttpClient {
      */
     async executeWithRetry(config, retryCount = 0) {
         // Get or generate request ID
-        const requestId = config.headers?.['X-Request-ID'] || (0, request_utils_1.generateRequestId)();
-        const timestamp = new Date().toISOString();
+        const requestId = config.headers?.['REQUEST-ID'] || (0, request_utils_1.generateRequestId)();
+        const timestamp = (0, request_utils_1.getCurrentTimestamp)();
         // Determine retry configuration
         const retryConfig = typeof config.retry === 'object' ? config.retry : this._defaultRetryConfig;
         const maxRetries = typeof config.retry === 'number'
@@ -111,8 +77,8 @@ class HttpClient {
                 timeout: config.timeout ?? this.config.timeout ?? DEFAULT_CONFIG.timeout,
                 headers: {
                     ...config.headers,
-                    'X-Request-ID': requestId,
-                    'X-Timestamp': timestamp
+                    'REQUEST-ID': requestId,
+                    'TIMESTAMP': timestamp
                 }
             };
             const response = await this.client.request(requestConfig);
@@ -189,13 +155,6 @@ class HttpClient {
      */
     get publicKey() {
         return this._publicKey;
-    }
-    /**
-     * Set the public key
-     * @param publicKey The public key as a string or null to clear it
-     */
-    set publicKey(publicKey) {
-        this._publicKey = publicKey;
     }
     /**
      * Get the private key
@@ -351,7 +310,7 @@ class HttpClient {
         this.client.interceptors.request.use(async (config) => {
             const internalConfig = config;
             const requestId = (0, request_utils_1.generateRequestId)();
-            const timestamp = Date.now();
+            const timestamp = (0, request_utils_1.getCurrentTimestamp)();
             internalConfig['requestId'] = requestId;
             internalConfig['timestamp'] = timestamp;
             // Log the request details
@@ -405,8 +364,8 @@ class HttpClient {
             const formattedTimestamp = currentDate.toISOString();
             Object.assign(internalConfig.headers, {
                 'X-CM-ID': this.config['xcmId'] || 'sbx',
-                'X-Request-ID': requestId,
-                'X-Timestamp': formattedTimestamp,
+                'REQUEST-ID': requestId,
+                'TIMESTAMP': formattedTimestamp,
                 'Date': currentDate.toUTCString()
             });
             // Log the timestamp being sent
@@ -427,7 +386,7 @@ class HttpClient {
     _setupRequestInterceptors() {
         this.client.interceptors.request.use(async (config) => {
             const requestId = (0, request_utils_1.generateRequestId)();
-            const timestamp = Date.now();
+            const timestamp = (0, request_utils_1.getCurrentTimestamp)();
             const internalConfig = config;
             internalConfig['requestId'] = requestId;
             internalConfig['timestamp'] = timestamp;
@@ -647,8 +606,8 @@ class HttpClient {
         throw new Error('Authentication failed after all retry attempts');
     }
     /**
-     * Fetches the public key from the ABDM server.
-     * @returns A promise that resolves to the public key or null if not found
+     * Fetches the public key from the ABDM server and sets it internally
+     * Always fetches fresh from the API, never from config or env
      */
     async getPublicKey() {
         try {
@@ -737,46 +696,11 @@ class HttpClient {
             }
         }
         if (publicKey) {
-            // Ensure the key is properly formatted
-            if (!publicKey.includes('-----BEGIN PUBLIC KEY-----')) {
-                publicKey = `-----BEGIN PUBLIC KEY-----\n${publicKey}\n-----END PUBLIC KEY-----`;
-            }
+            // Do NOT add PEM headers/footers, always keep as base64 string
             this._publicKey = publicKey;
             return { key: publicKey };
         }
         return null;
-    }
-    /**
-     * Encrypts data using the ABDM public key.
-     * @param data The string data to encrypt.
-     * @returns The Base64-encoded encrypted string.
-     * @throws {Error} If encryption fails or public key is not available
-     */
-    async encrypt(data) {
-        try {
-            // For production, try to get the public key from the configuration first
-            if (!this._publicKey) {
-                const publicKeyResponse = await this.getPublicKey();
-                if (!publicKeyResponse) {
-                    throw new Error('Failed to obtain public key for encryption');
-                }
-                this._publicKey = publicKeyResponse.key;
-            }
-            const buffer = Buffer.from(data, 'utf8');
-            const encrypted = crypto.publicEncrypt({
-                key: this._publicKey,
-                padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-                oaepHash: 'sha256',
-            }, buffer);
-            return encrypted.toString('base64');
-        }
-        catch (error) {
-            logger_1.logger.error('Encryption failed:', error);
-            if (error instanceof Error) {
-                throw new Error(`Encryption failed: ${error.message}`);
-            }
-            throw new Error('Encryption failed with unknown error');
-        }
     }
     /**
      * HTTP GET request
@@ -858,8 +782,8 @@ class HttpClient {
                 url: requestUrl,
                 headers: {
                     ...config.headers,
-                    'X-Request-ID': requestId,
-                    'X-Timestamp': timestamp,
+                    'REQUEST-ID': requestId,
+                    'TIMESTAMP': timestamp,
                 },
             };
             try {

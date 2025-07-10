@@ -42,7 +42,7 @@ export class AuthService {
       }
 
       // Use the correct OTP endpoint for the sandbox environment
-      const otpUrl = '/api/v3/enrollment/request/otp';
+      const otpUrl = 'abha/api/v3/enrollment/request/otp';
       
       // Get the auth token
       const authToken = this.httpClient?.getAuthToken?.();
@@ -78,10 +78,8 @@ export class AuthService {
           payload, 
           {
             headers: {
-              'X-Token': authToken.startsWith('Bearer ') ? authToken.substring(7) : authToken,
               'Content-Type': 'application/json',
               'Accept': 'application/json',
-              'X-CM-ID': 'sbx'
             },
           },
           'default' // Use default base URL for sandbox

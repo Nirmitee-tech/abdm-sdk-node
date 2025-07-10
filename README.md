@@ -144,6 +144,26 @@ interface ABDMConfig {
    npm run format
    ```
 
+## 🛠 Troubleshooting SSL/Crypto Issues
+
+### Node.js & OpenSSL Requirements
+- Node.js 16.0.0 or higher is required.
+- OpenSSL 1.x or 3.x is required (Node.js uses OpenSSL under the hood).
+
+### Common Errors & Solutions
+- **Encryption failed: unsupported** or **Failed to create public key object**: Your Node.js or OpenSSL version may be too old or incompatible. Upgrade Node.js to the latest LTS version.
+- **OpenSSL legacy provider required**: On Node.js 17+ with OpenSSL 3, you may need to run your app with:
+  
+  ```sh
+  node --openssl-legacy-provider your-app.js
+  ```
+- **Insecure SSL warning in production**: Never set `NODE_TLS_REJECT_UNAUTHORIZED=0` or use `rejectUnauthorized: false` in production. This is only for sandbox/testing.
+
+### Still Stuck?
+- Check your Node.js version: `node -v`
+- Check your OpenSSL version: `node -p "process.versions.openssl"`
+- If you see errors, upgrade Node.js or consult the SDK documentation/issues.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTING.md) before submitting pull requests.

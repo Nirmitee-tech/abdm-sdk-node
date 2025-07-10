@@ -114,13 +114,13 @@ describe('ABDM Authentication Test', () => {
     
     // Verify the key format (should be a PEM-encoded public key)
     const publicKey = result.data.key;
-    expect(publicKey).toContain('-----BEGIN PUBLIC KEY-----');
-    expect(publicKey).toContain('-----END PUBLIC KEY-----');
+    const pemRegex = /^-----BEGIN PUBLIC KEY-----\n[A-Za-z0-9+/=\n]+-----END PUBLIC KEY-----\n?$/;
+    expect(publicKey).toMatch(pemRegex);
     
     console.log('Successfully retrieved public key');
   }, 30000); // 30 seconds timeout for the public key fetch
 
-  it.only('should generate Aadhaar OTP successfully', async () => {
+  it('should generate Aadhaar OTP successfully', async () => {
     // First authenticate to get a valid token
     await client.authenticate();
     
@@ -146,9 +146,8 @@ describe('ABDM Authentication Test', () => {
     if (response.data) {
       expect(typeof response.data.txnId).toBe('string');
       expect(response.data.txnId.length).toBeGreaterThan(0);
-      expect(typeof response.data.maskedAadhaar).toBe('string');
-      expect(response.data.maskedAadhaar).toContain('****');
-      expect(typeof response.data.timestamp).toBe('string');
+      expect(typeof response.data.message).toBe('string');
+      expect(response.data.message).toContain('OTP sent');
     } else {
       throw new Error('No data in response');
     }
@@ -157,36 +156,7 @@ describe('ABDM Authentication Test', () => {
     console.log('Aadhaar OTP response:', {
       status: response.status,
       txnId: response.data?.txnId,
-      maskedAadhaar: response.data?.maskedAadhaar,
-      timestamp: response.data?.timestamp
+      message: response.data?.message
     });
   }, 30000); // 30 seconds timeout for the OTP generation
-
-  it('should encrypt data using the public key', async () => {
-    // First authenticate to get a valid token
-    await client.authenticate();
-    
-    // Get the public key first
-    const keyResponse = await client.getPublicKey();
-    if (!keyResponse.data) {
-      throw new Error('No public key data in response');
-    }
-    
-    // Test data to encrypt
-    const testData = 'sensitive-data-' + Date.now();
-    
-    // Act - Encrypt the test data
-    const encrypted = await client.encrypt(testData);
-    
-    // Assert - Verify the encrypted data
-    expect(encrypted).toBeDefined();
-    expect(typeof encrypted).toBe('string');
-    expect(encrypted.length).toBeGreaterThan(0);
-    
-    // The encrypted data should be a base64 string
-    const base64Regex = /^[A-Za-z0-9+/=]+$/;
-    expect(encrypted).toMatch(base64Regex);
-    
-    console.log('Successfully encrypted test data');
-  }, 30000); // 30 seconds timeout for the encryption test
 });

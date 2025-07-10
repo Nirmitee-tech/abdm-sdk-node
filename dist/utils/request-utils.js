@@ -5,20 +5,29 @@ exports.getCurrentTimestamp = getCurrentTimestamp;
 exports.getCurrentTimestampMs = getCurrentTimestampMs;
 exports.generateRequestMetadata = generateRequestMetadata;
 exports.getCommonHeaders = getCommonHeaders;
+const crypto_1 = require("crypto");
 /**
  * Generates a random request ID
  * @param length Length of the request ID (default: 8)
  * @returns A random string to be used as request ID
  */
-function generateRequestId(length = 8) {
-    return Math.random().toString(36).substring(2, 2 + length);
+function generateRequestId() {
+    return (0, crypto_1.randomUUID)();
 }
 /**
  * Gets the current timestamp in ISO format
  * @returns Current timestamp string in ISO format
  */
 function getCurrentTimestamp() {
-    return new Date().toISOString();
+    const now = new Date();
+    // Format: YYYY-MM-DDTHH:mm:ssZ (no milliseconds, UTC)
+    const ts = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
+    // Log the generated timestamp for debugging
+    if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[DEBUG] Generated TIMESTAMP:', ts, '| System UTC:', now.toUTCString());
+    }
+    return ts;
 }
 /**
  * Gets the current timestamp in milliseconds since epoch
@@ -46,8 +55,8 @@ function generateRequestMetadata() {
  */
 function getCommonHeaders(metadata, additionalHeaders = {}) {
     return {
-        'X-Request-ID': metadata.requestId,
-        'X-Timestamp': metadata.timestamp,
+        'REQUEST-ID': metadata.requestId,
+        'TIMESTAMP': metadata.timestamp,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         ...additionalHeaders,

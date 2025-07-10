@@ -55,14 +55,9 @@ export interface AadhaarOtpResponse {
   txnId: string;
   
   /**
-   * The masked Aadhaar number where OTP was sent
+   * The message indicating OTP was sent
    */
-  maskedAadhaar: string;
-  
-  /**
-   * The timestamp when the OTP was sent
-   */
-  timestamp: string;
+  message: string;
 }
 
 export interface CreateAbhaRequest {

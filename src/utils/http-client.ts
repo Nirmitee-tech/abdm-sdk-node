@@ -1,8 +1,10 @@
-import * as crypto from 'crypto';
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import NodeCache from 'node-cache';
 import { APIResponse } from '../types';
 import { generateRequestId, getCurrentTimestamp, getCurrentTimestampMs } from './request-utils';
+import * as crypto from 'crypto';
+import * as semver from 'semver';
+import { logger } from './logger';
 
 // Extend AxiosRequestConfig with our custom options
 export interface RequestOptions extends Omit<AxiosRequestConfig, 'data'> {
@@ -43,7 +45,6 @@ interface ExtendedAPIResponse<T = any> extends APIResponse<T> {
 }
 
 import type { ABDMConfig } from '../types';
-import { logger } from './logger';
 
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -87,6 +88,15 @@ interface AbdmErrorData {
   message?: string;
   details?: any[];
   [key: string]: any; // Allow additional properties
+}
+
+/**
+ * Converts a base64-encoded public key to PEM format for Node.js crypto
+ */
+function base64ToPem(base64Key: string): string {
+  const cleanBase64 = base64Key.replace(/\s+/g, '');
+  const lines = cleanBase64.match(/.{1,64}/g) || [];
+  return `-----BEGIN PUBLIC KEY-----\n${lines.join('\n')}\n-----END PUBLIC KEY-----\n`;
 }
 
 export class HttpClient {
@@ -141,7 +151,7 @@ export class HttpClient {
     
     // Create a hash of the key parts to ensure it's a valid cache key
     const keyString = keyParts.join('|');
-    return crypto.createHash('md5').update(keyString).digest('hex');
+    return keyString; // No crypto.createHash
   }
 
   /**
@@ -155,8 +165,8 @@ export class HttpClient {
     retryCount = 0
   ): Promise<AxiosResponse<T>> {
     // Get or generate request ID
-    const requestId = config.headers?.['X-Request-ID'] as string || generateRequestId();
-    const timestamp = new Date().toISOString();
+    const requestId = config.headers?.['REQUEST-ID'] as string || generateRequestId();
+    const timestamp = getCurrentTimestamp();
     
     // Determine retry configuration
     const retryConfig = typeof config.retry === 'object' ? config.retry : this._defaultRetryConfig;
@@ -171,8 +181,8 @@ export class HttpClient {
         timeout: config.timeout ?? this.config.timeout ?? DEFAULT_CONFIG.timeout,
         headers: {
           ...config.headers,
-          'X-Request-ID': requestId,
-          'X-Timestamp': timestamp
+          'REQUEST-ID': requestId,
+          'TIMESTAMP': timestamp
         }
       };
 
@@ -269,14 +279,6 @@ export class HttpClient {
   }
 
   /**
-   * Set the public key
-   * @param publicKey The public key as a string or null to clear it
-   */
-  public set publicKey(publicKey: string | null) {
-    this._publicKey = publicKey;
-  }
-
-  /**
    * Get the private key
    */
   public get privateKey(): string | null {
@@ -355,6 +357,22 @@ export class HttpClient {
   }
 
   constructor(config: ABDMConfig) {
+    // Node.js/OpenSSL version check
+    const nodeVersion = process.versions.node;
+    const opensslVersion = process.versions.openssl;
+    const minNodeVersion = '16.0.0';
+    if (!semver.satisfies(nodeVersion, `>=${minNodeVersion}`)) {
+      logger.error(`ABDM SDK requires Node.js ${minNodeVersion} or higher. Detected: ${nodeVersion}`);
+      throw new Error(`ABDM SDK requires Node.js ${minNodeVersion} or higher. Detected: ${nodeVersion}`);
+    }
+    // Warn if OpenSSL version is missing or too old
+    if (!opensslVersion || !/^1\.|^3\./.test(opensslVersion)) {
+      logger.warn(`ABDM SDK requires OpenSSL 1.x or 3.x. Detected: ${opensslVersion}`);
+    }
+    // Warn if insecure SSL settings are used in production
+    if (process.env.NODE_ENV === 'production' && process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+      logger.warn('Insecure SSL settings detected in production! Do not set NODE_TLS_REJECT_UNAUTHORIZED=0 in production.');
+    }
     // Initialize cache with default TTL of 5 minutes and check period of 1 minute
     this._defaultCacheTtl = DEFAULT_CONFIG.cacheTtl;
     this._defaultRetryConfig = {
@@ -448,7 +466,7 @@ export class HttpClient {
       async (config: InternalAxiosRequestConfig) => {
         const internalConfig = config as CustomAxiosRequestConfig;
         const requestId = generateRequestId();
-        const timestamp = Date.now();
+        const timestamp = getCurrentTimestamp();
         internalConfig['requestId'] = requestId;
         internalConfig['timestamp'] = timestamp;
 
@@ -508,8 +526,8 @@ export class HttpClient {
         
         Object.assign(internalConfig.headers, {
           'X-CM-ID': this.config['xcmId'] || 'sbx',
-          'X-Request-ID': requestId,
-          'X-Timestamp': formattedTimestamp,
+          'REQUEST-ID': requestId,
+          'TIMESTAMP': formattedTimestamp,
           'Date': currentDate.toUTCString()
         });
         
@@ -538,7 +556,7 @@ export class HttpClient {
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         const requestId = generateRequestId();
-        const timestamp = Date.now();
+        const timestamp = getCurrentTimestamp();
         const internalConfig = config as CustomAxiosRequestConfig;
         internalConfig['requestId'] = requestId;
         internalConfig['timestamp'] = timestamp;
@@ -795,8 +813,8 @@ export class HttpClient {
 
 
   /**
-   * Fetches the public key from the ABDM server.
-   * @returns A promise that resolves to the public key or null if not found
+   * Fetches the public key from the ABDM server and sets it internally
+   * Always fetches fresh from the API, never from config or env
    */
   public async getPublicKey(): Promise<{ key: string } | null> {
     try {
@@ -866,9 +884,7 @@ export class HttpClient {
    */
   private extractPublicKeyFromResponse(data: any): { key: string } | null {
     if (!data) return null;
-    
     let publicKey: string | null = null;
-    
     if (typeof data === 'string') {
       publicKey = data;
     } else if (data.key) {
@@ -885,53 +901,12 @@ export class HttpClient {
         publicKey = keyMatch[1];
       }
     }
-    
     if (publicKey) {
-      // Ensure the key is properly formatted
-      if (!publicKey.includes('-----BEGIN PUBLIC KEY-----')) {
-        publicKey = `-----BEGIN PUBLIC KEY-----\n${publicKey}\n-----END PUBLIC KEY-----`;
-      }
+      // Do NOT add PEM headers/footers, always keep as base64 string
       this._publicKey = publicKey;
       return { key: publicKey };
     }
-    
     return null;
-  }
-
-  /**
-   * Encrypts data using the ABDM public key.
-   * @param data The string data to encrypt.
-   * @returns The Base64-encoded encrypted string.
-   * @throws {Error} If encryption fails or public key is not available
-   */
-  public async encrypt(data: string): Promise<string> {
-    try {
-      // For production, try to get the public key from the configuration first
-      if (!this._publicKey) {
-        const publicKeyResponse = await this.getPublicKey();
-        if (!publicKeyResponse) {
-          throw new Error('Failed to obtain public key for encryption');
-        }
-        this._publicKey = publicKeyResponse.key;
-      }
-      
-      const buffer = Buffer.from(data, 'utf8');
-      const encrypted = crypto.publicEncrypt(
-        {
-          key: this._publicKey!,
-          padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-          oaepHash: 'sha256',
-        },
-        buffer
-      );
-      return encrypted.toString('base64');
-    } catch (error: unknown) {
-      logger.error('Encryption failed:', error);
-      if (error instanceof Error) {
-        throw new Error(`Encryption failed: ${error.message}`);
-      }
-      throw new Error('Encryption failed with unknown error');
-    }
   }
 
   /**
@@ -1043,8 +1018,8 @@ export class HttpClient {
         url: requestUrl,
         headers: {
           ...config.headers,
-          'X-Request-ID': requestId,
-          'X-Timestamp': timestamp,
+          'REQUEST-ID': requestId,
+          'TIMESTAMP': timestamp,
         },
       };
       
@@ -1104,6 +1079,70 @@ export class HttpClient {
           message: error instanceof Error ? error.message : 'An unknown error occurred'
         }
       } as ExtendedAPIResponse<T>;
+    }
+  }
+
+  /**
+   * Encrypts data using the ABDM public key fetched from the API.
+   * @param data The string data to encrypt.
+   * @returns The Base64-encoded encrypted string.
+   * @throws {Error} If encryption fails or public key is not available
+   */
+  public async encrypt(data: string): Promise<string> {
+    try {
+      // Always fetch the public key fresh from the API before encryption
+      const publicKeyResponse = await this.getPublicKey();
+      if (!publicKeyResponse) {
+        throw new Error('Failed to obtain public key for encryption');
+      }
+      const publicKey = publicKeyResponse.key;
+      
+      // Determine if the key is already in PEM format or needs conversion
+      let pemKey: string;
+      if (publicKey.includes('-----BEGIN PUBLIC KEY-----')) {
+        // Key is already in PEM format
+        pemKey = publicKey;
+      } else {
+        // Key is in base64 format, convert to PEM
+        pemKey = base64ToPem(publicKey);
+      }
+      
+      let keyObject;
+      try {
+        keyObject = crypto.createPublicKey(pemKey);
+      } catch (err) {
+        console.error('[ENCRYPTION ERROR] Failed to create public key object:', err instanceof Error ? err.message : err);
+        console.error('[ENCRYPTION ERROR] Public key format check:', publicKey.includes('-----BEGIN PUBLIC KEY-----') ? 'PEM' : 'Base64');
+        console.error('[ENCRYPTION ERROR] Public key (first 100 chars):', publicKey.slice(0, 100) + '...');
+        throw new Error('Failed to create public key object: ' + (err instanceof Error ? err.message : err));
+      }
+      const buffer = Buffer.from(data, 'utf8');
+      let encrypted: Buffer;
+      try {
+        encrypted = crypto.publicEncrypt(
+          {
+            key: keyObject,
+            padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+            oaepHash: 'sha1', // Use SHA-1 as required by ABDM
+          },
+          buffer
+        );
+      } catch (err) {
+        console.error('[ENCRYPTION ERROR] Failed to encrypt:', err instanceof Error ? err.message : err);
+        console.error('[ENCRYPTION ERROR] Public key format check:', publicKey.includes('-----BEGIN PUBLIC KEY-----') ? 'PEM' : 'Base64');
+        console.error('[ENCRYPTION ERROR] Public key (first 100 chars):', publicKey.slice(0, 100) + '...');
+        throw new Error('Encryption failed: ' + (err instanceof Error ? err.message : err));
+      }
+      return encrypted.toString('base64');
+    } catch (error: unknown) {
+      if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.error('Encryption failed:', error);
+      }
+      if (error instanceof Error) {
+        throw new Error(`Encryption failed: ${error.message}`);
+      }
+      throw new Error('Encryption failed with unknown error');
     }
   }
 

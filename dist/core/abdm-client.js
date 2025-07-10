@@ -153,17 +153,6 @@ class ABDMClient {
         return this.auth.createAbhaIdByAadhaar(request);
     }
     /**
-     * Encrypts the given data using the configured encryption method
-     * @param data The data to encrypt
-     * @returns A promise that resolves to the encrypted data
-     */
-    async encrypt(data) {
-        if (!this.http.encrypt) {
-            throw new Error('Encryption is not configured. Make sure to provide an encryption implementation.');
-        }
-        return this.http.encrypt(data);
-    }
-    /**
      * Fetches the public key from the ABDM server
      * @returns A promise that resolves to the public key response
      */

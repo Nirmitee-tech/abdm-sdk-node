@@ -1,10 +1,12 @@
+import { randomUUID } from 'crypto';
+
 /**
  * Generates a random request ID
  * @param length Length of the request ID (default: 8)
  * @returns A random string to be used as request ID
  */
-export function generateRequestId(length: number = 8): string {
-  return Math.random().toString(36).substring(2, 2 + length);
+export function generateRequestId(): string {
+  return randomUUID();
 }
 
 /**
@@ -12,7 +14,15 @@ export function generateRequestId(length: number = 8): string {
  * @returns Current timestamp string in ISO format
  */
 export function getCurrentTimestamp(): string {
-  return new Date().toISOString();
+  const now = new Date();
+  // Format: YYYY-MM-DDTHH:mm:ssZ (no milliseconds, UTC)
+  const ts = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  // Log the generated timestamp for debugging
+  if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG] Generated TIMESTAMP:', ts, '| System UTC:', now.toUTCString());
+  }
+  return ts;
 }
 
 /**
@@ -55,8 +65,8 @@ export function getCommonHeaders(
   additionalHeaders: Record<string, string> = {}
 ): Record<string, string> {
   return {
-    'X-Request-ID': metadata.requestId,
-    'X-Timestamp': metadata.timestamp,
+    'REQUEST-ID': metadata.requestId,
+    'TIMESTAMP': metadata.timestamp,
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     ...additionalHeaders,

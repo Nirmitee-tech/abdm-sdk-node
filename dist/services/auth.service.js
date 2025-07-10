@@ -39,22 +39,19 @@ class AuthService {
                 throw new Error('Aadhaar number must be 12 digits');
             }
             // Use the correct OTP endpoint for the sandbox environment
-            const otpUrl = '/api/v3/enrollment/request/otp';
+            const otpUrl = 'abha/api/v3/enrollment/request/otp';
             // Get the auth token
             const authToken = this.httpClient?.getAuthToken?.();
             if (!authToken) {
                 throw new Error('Not authenticated. Please authenticate first.');
             }
             try {
-                // Encrypt the Aadhaar number using the httpClient's encrypt method
-                this.logger.debug('Encrypting Aadhaar number...');
-                const encryptedAadhaar = await this.httpClient.encrypt(aadhaarNumber);
                 // Prepare the request payload according to ABDM API specs
                 const payload = {
                     txnId: '', // Empty as per documentation
                     scope: ['abha-enrol'],
                     loginHint: 'aadhaar',
-                    loginId: encryptedAadhaar,
+                    loginId: aadhaarNumber,
                     otpSystem: 'aadhaar'
                 };
                 this.logger.debug('Aadhaar OTP request payload (sensitive data redacted):', {
@@ -66,10 +63,8 @@ class AuthService {
                 this.logger.debug('Sending Aadhaar OTP request...');
                 const response = await this.httpClient.post(otpUrl, payload, {
                     headers: {
-                        'X-Token': authToken.startsWith('Bearer ') ? authToken.substring(7) : authToken,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'X-CM-ID': 'sbx'
                     },
                 }, 'default' // Use default base URL for sandbox
                 );
