@@ -45,7 +45,7 @@ import { ABDMClient } from '@nirmitee/abdm-sdk-node';
 const client = new ABDMClient({
   clientId: 'your-client-id',
   clientSecret: 'your-client-secret',
-  baseUrl: 'https://dev.abdm.gov.in', // Use appropriate environment URL
+  // baseUrl: 'https://dev.abdm.gov.in', // Use appropriate environment URL
   // other optional config
 });
 
@@ -84,9 +84,18 @@ generateAadhaarOTP();
   - `getConsentStatus()`: Get consent status
   - `revokeConsent()`: Revoke consent
 
-- **`health`**: Health record services
-  - `getHealthRecords()`: Fetch health records
-  - `shareHealthRecords()`: Share health records
+- **`health`**: Health record and facility services
+  - `addUpdateHealthFacilityServices(data)`: Add or update health facility services
+  - `getHealthFacility(facilityId)`: Get health facility details
+  - `listHealthFacilities()`: List all health facilities
+  - `updateHealthFacilityStatus(facilityId, active)`: Update health facility status (active/inactive)
+  - `getHealthRecords(patientId, token, options)`: Fetch health records
+  - `getHealthRecord(recordId, token)`: Get health record by ID
+  - `getABHAProfile(abhaNumber, token)`: Get ABHA profile
+  - `updateABHAProfile(profileData, token)`: Update ABHA profile
+  - `getLinkedAddresses(abhaNumber, token)`: Get linked ABHA addresses
+  - `createConsent(consentRequest, token)`: Create a new consent request
+  - `getConsent(consentId, token)`: Get consent details
 
 ### Configuration Options
 
@@ -94,12 +103,37 @@ generateAadhaarOTP();
 interface ABDMConfig {
   clientId: string;
   clientSecret: string;
-  baseUrl: string;
+  // baseUrl: string;
   timeout?: number; // Request timeout in milliseconds (default: 30000)
   maxRetries?: number; // Maximum retry attempts (default: 3)
   retryDelay?: number; // Delay between retries in ms (default: 1000)
   debug?: boolean; // Enable debug logging (default: false)
 }
+```
+
+## 🧑‍💻 Usage Example: Add or Update Health Facility Services
+
+```typescript
+import { ABDMClient } from '@nirmitee/abdm-sdk-node';
+
+const client = new ABDMClient({
+  clientId: 'your-client-id',
+  clientSecret: 'your-client-secret'
+});
+
+async function addOrUpdateFacility() {
+  try {
+    const data = {
+      // Fill with HealthFacilityRequest fields
+    };
+    const response = await client.health.addUpdateHealthFacilityServices(data);
+    console.log('Facility add/update response:', response);
+  } catch (error) {
+    console.error('Error adding/updating facility:', error);
+  }
+}
+
+addOrUpdateFacility();
 ```
 
 ## 🛠 Development
