@@ -140,7 +140,6 @@ describe('ABDM Authentication Test', () => {
     const generateResponse = await client.generateAadhaarOTP({
       aadhaarNumber,
       txnId: "",
-      requesterId: 'ABHA_TEST'
     });
     console.log('Generate OTP response:', JSON.stringify(generateResponse, null, 2));
     expect(generateResponse).toBeDefined();

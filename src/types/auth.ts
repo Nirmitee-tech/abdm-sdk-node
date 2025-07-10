@@ -41,11 +41,6 @@ export interface GenerateAadhaarOtpRequest {
    * The transaction ID for this request
    */
   txnId?: string;
-  
-  /**
-   * The requester ID (default: 'ABHA')
-   */
-  requesterId?: string;
 }
 
 export interface AadhaarOtpResponse {
