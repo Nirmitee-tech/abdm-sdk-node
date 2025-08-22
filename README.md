@@ -225,7 +225,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## 📞 Contact
 
-Nirmitee - [@NirmiteeTech](https://twitter.com/NirmiteeTech) - hello@nirmitee.io
+Nirmitee - https://nirmitee.io/get-in-touch/
 
 Project Link: [https://github.com/Nirmitee-tech/abdm-sdk-node](https://github.com/Nirmitee-tech/abdm-sdk-node)
 
